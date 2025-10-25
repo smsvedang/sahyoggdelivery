@@ -5,18 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Track Your Order</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        input { width: 250px; padding: 8px; }
-        button { padding: 10px 15px; }
-        #status-result { margin-top: 20px; font-size: 1.2em; }
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f7f6; }
+        .track-container { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        input { width: 70%; padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 12px 15px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        #status-result { margin-top: 20px; }
+        
+        /* --- नई टाइमलाइन (Timeline) CSS --- */
+        .timeline { list-style: none; padding: 0; margin-top: 20px; }
+        .timeline li {
+            position: relative;
+            padding: 10px 10px 20px 40px; /* Added more bottom padding */
+            border-left: 2px solid #ddd;
+            margin-left: 10px;
+        }
+        .timeline li:first-child { border-left-color: #007bff; } /* पहला वाला एक्टिव होगा */
+        .timeline li::before {
+            content: '';
+            position: absolute;
+            left: -11px;
+            top: 12px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #ddd;
+            border: 2px solid white;
+        }
+        .timeline li:first-child::before { background-color: #007bff; }
+        .timeline li strong { font-size: 1.1em; color: #333; }
+        .timeline li small { display: block; color: #777; margin-top: 5px; }
     </style>
 </head>
 <body>
-    <h1>अपना ऑर्डर ट्रैक करें</h1>
-    <input type="text" id="tracking-id" placeholder="Tracking ID डालें (जैसे SAHYOG-...)">
-    <button id="track-btn">ट्रैक करें</button>
-    
-    <div id="status-result"></div>
+    <div class="track-container">
+        <h1>अपना ऑर्डर ट्रैक करें</h1>
+        <input type="text" id="tracking-id" placeholder="Tracking ID डालें (जैसे SAHYOG-...)">
+        <button id="track-btn">ट्रैक करें</button>
+        <div id="status-result"></div>
+    </div>
 
     <script>
         document.getElementById('track-btn').addEventListener('click', async function() {
@@ -32,16 +58,36 @@
             resultDiv.innerHTML = "स्टेटस पता किया जा रहा है...";
 
             try {
-                // यह 'fetch' हमारे Node.js सर्वर (server.js) को कॉल कर रहा है
-                const response = await fetch(`http://localhost:3000/track/${trackingId}`);
-                
+                const response = await fetch(`/track/${trackingId}`);
                 const data = await response.json();
 
                 if (response.ok) {
+                    let statusHTML = '<ul class="timeline">';
+                    
+                    // --- नया टाइमलाइन लॉजिक ---
+                    // सर्वर से मिले 'statusUpdates' ऐरे को उल्टा (reverse) करें ताकि सबसे नया ऊपर दिखे
+                    data.statusUpdates.reverse().forEach(update => {
+                        const date = new Date(update.timestamp).toLocaleString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                        });
+                        
+                        statusHTML += `
+                            <li>
+                                <strong>${update.status}</strong>
+                                <small>${date}</small>
+                            </li>
+                        `;
+                    });
+                    
+                    statusHTML += '</ul>';
                     resultDiv.innerHTML = `
                         <p><strong>Tracking ID:</strong> ${data.trackingId}</p>
                         <p><strong>कस्टमर:</strong> ${data.customerName}</p>
-                        <p style="color:blue; font-weight:bold;"><strong>स्टेटस:</strong> ${data.status}</p>
+                        ${statusHTML}
                     `;
                 } else {
                     resultDiv.innerHTML = `<p style='color:red;'><strong>गड़बड़ी:</strong> ${data.message}</p>`;

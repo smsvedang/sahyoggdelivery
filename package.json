@@ -11,11 +11,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+<<<<<<< HEAD
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.2",
     "web-push": "^3.6.7"
+=======
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "mongoose": "^8.19.2"
+>>>>>>> 66b6c565068ed85436fd11f1901e967dc4cc4d92
   }
 }

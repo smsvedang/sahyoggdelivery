@@ -7,21 +7,28 @@
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
-        h2 { border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        h1, h2 { border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        .header button { padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; }
         button { padding: 10px 15px; margin: 5px 0; }
         input { padding: 10px; width: 200px; }
         #reader { width: 300px; border: 1px solid #ccc; }
-        #pending-list li { background: #f9f9f9; padding: 10px; margin-bottom: 5px; }
+        #pending-list li { background: #f9f9f9; padding: 10px; margin-bottom: 5px; list-style: none; }
         .message { padding: 10px; margin-top: 10px; }
         .success { background-color: #d4edda; color: #155724; }
         .error { background-color: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
-    <h1>Delivery Boy Panel</h1>
 
-    <h2>1. Pending Deliveries (Booked)</h2>
-    <button id="fetch-pending">Pending Deliveries दिखाओ</button>
+    <div class="header">
+        <h1>Delivery Panel (Welcome, <span id="delivery-name"></span>)</h1>
+        <button id="logout-btn">Logout</button>
+    </div>
+    <button id="enable-notifications" style="background-color: #28a745;">Enable Notifications</button>
+
+    <h2>1. My Assigned Deliveries</h2>
+    <button id="fetch-pending">Refresh My Deliveries</button>
     <ul id="pending-list"></ul>
     
     <h2>2. Scan QR to Start (Out for Delivery)</h2>
@@ -35,48 +42,76 @@
     <div id="otp-result" class="message" style="display:none;"></div>
 
     <script>
+        const token = localStorage.getItem('authToken');
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
         const scanResultDiv = document.getElementById('scan-result');
         const otpResultDiv = document.getElementById('otp-result');
         const pendingList = document.getElementById('pending-list');
-        
-        // *** RENDER FIX: 'http://localhost:3000' ko blank kar diya ***
-        const SERVER_URL = '';
 
-        // --- 1. Fetch Pending Deliveries ---
-        document.getElementById('fetch-pending').addEventListener('click', async () => {
-            pendingList.innerHTML = 'Loading...';
+        // --- 1. पेज लोड होते ही लॉगिन चेक करें ---
+        window.onload = () => {
+            if (!token) {
+                window.location.href = '/login'; // लॉगिन नहीं है, तो वापस भेजें
+                return;
+            }
+            document.getElementById('delivery-name').textContent = localStorage.getItem('userName');
+            loadAssignedDeliveries();
+            startScanner(); // स्कैनर शुरू करें
+        };
+
+        // --- 2. उसे असाइन की गई डिलीवरी लोड करें ---
+        document.getElementById('fetch-pending').onclick = loadAssignedDeliveries;
+        async function loadAssignedDeliveries() {
+            pendingList.innerHTML = '<li>Loading...</li>';
             try {
-                const response = await fetch(`${SERVER_URL}/deliveries/booked`);
+                const response = await fetch('/delivery/my-deliveries', { headers });
+                if (response.status === 401) window.location.href = '/login';
+
                 const deliveries = await response.json();
-                
                 pendingList.innerHTML = ''; // Clear list
+                
                 if (deliveries.length === 0) {
-                    pendingList.innerHTML = '<li>No pending deliveries.</li>';
+                    pendingList.innerHTML = '<li>No pending deliveries assigned to you.</li>';
                 }
                 
                 deliveries.forEach(d => {
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${d.trackingId}</strong><br>${d.customerName}<br>${d.customerAddress}`;
+                    li.innerHTML = `
+                        <strong>${d.trackingId} (Status: ${d.currentStatus})</strong><br>
+                        ${d.customerName}<br>
+                        ${d.customerAddress}<br>
+                        <strong>Payment: ${d.paymentMethod} (₹${d.billAmount})</strong>
+                    `;
                     pendingList.appendChild(li);
                 });
             } catch (err) {
-                pendingList.innerHTML = '<li>Error loading deliveries.</li>';
+                pendingList.innerHTML = `<li>Error loading deliveries: ${err.message}</li>`;
             }
-        });
+        }
 
-        // --- 2. QR Code Scanner ---
+        // --- 3. QR Code Scanner ---
         const html5QrCode = new Html5Qrcode("reader");
+        function startScanner() {
+             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+             html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
+                .catch(err => {
+                    console.log("Scanner start error:", err);
+                });
+        }
+       
         const qrCodeSuccessCallback = async (decodedText, decodedResult) => {
-            // decodedText is the "SAHYOG-123456" tracking ID
             html5QrCode.stop(); // Stop scanning
             scanResultDiv.style.display = 'block';
             scanResultDiv.className = 'message';
             scanResultDiv.innerHTML = `Scanned: ${decodedText}. Updating status...`;
 
             try {
-                const response = await fetch(`${SERVER_URL}/delivery/start`, {
+                const response = await fetch('/delivery/start', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: headers,
                     body: JSON.stringify({ trackingId: decodedText })
                 });
                 
@@ -85,6 +120,7 @@
                 if (response.ok) {
                     scanResultDiv.className = 'message success';
                     scanResultDiv.innerHTML = `Success! ${data.trackingId} is now ${data.status}.`;
+                    loadAssignedDeliveries(); // लिस्ट रीफ्रेश करें
                 } else {
                     scanResultDiv.className = 'message error';
                     scanResultDiv.innerHTML = `Error: ${data.message}`;
@@ -93,12 +129,11 @@
                 scanResultDiv.className = 'message error';
                 scanResultDiv.innerHTML = `Error connecting to server.`;
             }
+            setTimeout(startScanner, 3000); // 3 सेकंड बाद स्कैनर फिर से शुरू करें
         };
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-        // Start scanning
-        html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback);
+        
 
-        // --- 3. Complete Delivery (OTP) ---
+        // --- 4. Complete Delivery (OTP) ---
         document.getElementById('complete-btn').addEventListener('click', async () => {
             const trackingId = document.getElementById('otp-tracking-id').value;
             const otp = document.getElementById('otp-code').value;
@@ -114,9 +149,9 @@
             }
 
             try {
-                const response = await fetch(`${SERVER_URL}/delivery/complete`, {
+                const response = await fetch('/delivery/complete', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: headers,
                     body: JSON.stringify({ trackingId, otp })
                 });
 
@@ -125,6 +160,7 @@
                 if (response.ok) {
                     otpResultDiv.className = 'message success';
                     otpResultDiv.innerHTML = `Success! ${data.trackingId} is ${data.status}.`;
+                    loadAssignedDeliveries(); // लिस्ट रीफ्रेश करें
                 } else {
                     otpResultDiv.className = 'message error';
                     otpResultDiv.innerHTML = `Error: ${data.message}`;
@@ -134,6 +170,45 @@
                 otpResultDiv.innerHTML = 'Error connecting to server.';
             }
         });
+
+        // --- 5. Push Notification ---
+        document.getElementById('enable-notifications').onclick = async () => {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const reg = await navigator.serviceWorker.register('/service-worker.js');
+                    const sub = await reg.pushManager.getSubscription();
+                    if (sub) {
+                        alert('You are already subscribed.');
+                    } else {
+                        const publicKeyRes = await fetch('/vapid-public-key');
+                        const publicKey = await publicKeyRes.text();
+                        
+                        const newSub = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: publicKey
+                        });
+                        
+                        await fetch('/subscribe', {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify(newSub)
+                        });
+                        alert('Notifications enabled!');
+                    }
+                } catch (err) {
+                    alert('Failed to enable notifications. ' + err.message);
+                }
+            } else {
+                alert('Push notifications are not supported on this browser.');
+            }
+        };
+
+        // --- 6. Logout ---
+        document.getElementById('logout-btn').onclick = () => {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userName');
+            window.location.href = '/login';
+        };
     </script>
 </body>
 </html>

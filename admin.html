@@ -4,140 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sahyog - Admin Dashboard</title>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    
     <style>
-        /* --- Basic Setup --- */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f7f6;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            color: #333;
-            text-align: center;
-        }
-        
-        /* --- Layout --- */
-        .container {
-            display: flex;
-            flex-wrap: wrap; /* Allows stacking on small screens */
-            gap: 20px;
-        }
-        .card {
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            padding: 25px;
-            flex: 1; /* Both cards take equal space */
-            min-width: 350px; /* Minimum width before stacking */
-        }
-        .card h2 {
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-            margin-top: 0;
-        }
-
-        /* --- Form Styles --- */
-        #booking-form label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: #555;
-        }
-        #booking-form input {
-            width: 95%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        #booking-form button {
-            background-color: #007bff;
-            color: white;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-        }
-        #booking-form button:disabled {
-            background-color: #aaa;
-        }
-
-        /* --- Result & Label Styles --- */
-        #result-area {
-            background-color: #f9f9f9;
-        }
-        #result {
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        #result.success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        #result.error {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        
-        /* --- Printable Label --- */
-        #label {
-            border: 2px dashed #333;
-            padding: 20px;
-            display: none; /* Hide initially */
-        }
-        #label-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
-        #label-header h3 {
-            margin: 0;
-            font-size: 20px;
-        }
-        #label-header span {
-            font-size: 14px;
-            font-weight: 600;
-        }
-        #label-details p {
-            margin: 5px 0;
-            font-size: 16px;
-        }
-        #qrcode {
-            margin: 20px auto 10px auto; /* Center the QR code */
-            width: 140px;
-            height: 140px;
-        }
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        h1, h2 { color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        .header button { padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .card { background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 25px; flex: 1; min-width: 400px; }
+        form label { display: block; font-weight: 600; margin-bottom: 5px; color: #555; }
+        form input, form select { width: 95%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        form button { background-color: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; width: 100%; }
+        #result { padding: 15px; border-radius: 5px; margin-bottom: 20px; word-break: break-all; }
+        #result.success { background-color: #d4edda; color: #155724; }
+        #result.error { background-color: #f8d7da; color: #721c24; }
+        #label { border: 2px dashed #333; padding: 20px; display: none; margin-top: 20px; }
+        #label-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 15px; }
+        #qr-container { display: flex; justify-content: space-around; text-align: center; }
+        #qrcode-tracking, #qrcode-payment { width: 128px; height: 128px; margin: 10px auto; }
+        #action-buttons button { background-color: #6c757d; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; }
+        #all-deliveries-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        #all-deliveries-table th, #all-deliveries-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        #all-deliveries-table th { background-color: #f2f2f2; }
     </style>
 </head>
 <body>
 
-    <h1>सहयोग मेडिकल - एडमिन डैशबोर्ड</h1>
+    <div class="header">
+        <h1>सहयोग मेडिकल - एडमिन डैशबोर्ड (Welcome, <span id="admin-name"></span>)</h1>
+        <button id="logout-btn">Logout</button>
+    </div>
 
     <div class="container">
-        
         <div class="card" id="booking-area">
             <h2>नया कूरियर बुक करें</h2>
             <form id="booking-form">
                 <label for="name">कस्टमर का नाम:</label>
                 <input type="text" id="name" required>
-                
                 <label for="address">कस्टमर का पता:</label>
                 <input type="text" id="address" required>
-                
                 <label for="phone">कस्टमर का फ़ोन:</label>
                 <input type="text" id="phone" required>
+
+                <label for="paymentMethod">पेमेंट मोड:</label>
+                <select id="paymentMethod" onchange="toggleBillAmount(this.value)">
+                    <option value="Prepaid">Prepaid</option>
+                    <option value="COD">COD (Cash on Delivery)</option>
+                </select>
+
+                <div id="billAmountDiv" style="display:none;">
+                    <label for="billAmount">बिल अमाउंट (₹):</label>
+                    <input type="number" id="billAmount" value="0" min="0">
+                </div>
+                
+                <label for="assignedTo">किसको असाइन करें:</label>
+                <select id="assignedTo">
+                    <option value="">Select Delivery Boy</option>
+                    </select>
                 
                 <button type="submit" id="submit-btn">बुक करें</button>
             </form>
@@ -145,102 +68,314 @@
         
         <div class="card" id="result-area">
             <h2>बुकिंग स्टेटस</h2>
+            <div id="result"><p>कृपया बुकिंग डिटेल्स भरें...</p></div>
             
-            <div id="result">
-                <p>कृपया बुकिंग डिटेल्स भरें...</p>
+            <div id="action-buttons" style="display:none;">
+                <button id="print-btn">🖨️ Print Label</button>
+                <button id="share-btn">✉️ Share with Customer</button>
             </div>
-            
+
             <div id="label">
                 <div id="label-header">
                     <h3>Sahyog Medical</h3>
-                    <span>HOME DELIVERY</span>
+                    <span id="label-payment-method" style="font-weight:bold;"></span>
                 </div>
-                <div id="label-details">
-                    <p><strong>TO:</strong> <span id="label-name"></span></p>
-                    <p><strong>ADDRESS:</strong> <span id="label-address"></span></p>
-                    <p><strong>TRACKING ID:</strong> <span id="label-tracking-id"></span></p>
-                    <p><strong>OTP:</strong> <span id="label-otp" style="font-weight:bold; font-size: 18px;"></span></p>
+                <p><strong>TO:</strong> <span id="label-name"></span></p>
+                <p><strong>TRACKING ID:</strong> <span id="label-tracking-id"></span></p>
+                <div id="qr-container">
+                    <div>
+                        <div id="qrcode-tracking"></div>
+                        <small>Scan to Track/Update</small>
+                    </div>
+                    <div id="payment-qr-div" style="display:none;">
+                        <div id="qrcode-payment"></div>
+                        <small><strong>Scan to Pay (Bill: ₹<span id="label-bill-amount"></span>)</strong></small>
+                    </div>
                 </div>
-                <div id="qrcode"></div>
-                <p style="text-align:center; font-size: 14px; color: #555;">Scan to start delivery</p>
             </div>
+        </div>
 
+        <div class="card" id="manage-boys-area">
+            <h2>Manage Delivery Boys</h2>
+            <form id="create-boy-form">
+                <label for="boy-name">Name:</label>
+                <input type="text" id="boy-name" required>
+                <label for="boy-email">Email (Username):</label>
+                <input type="email" id="boy-email" required>
+                <label for="boy-password">Password:</label>
+                <input type="text" id="boy-password" required>
+                <button type="submit">Create Delivery Boy</button>
+            </form>
+            <div id="create-boy-result"></div>
+            <h3>Existing Delivery Boys:</h3>
+            <ul id="delivery-boy-list"></ul>
         </div>
     </div>
 
-    <script>
-        const bookingForm = document.getElementById('booking-form');
-        const submitBtn = document.getElementById('submit-btn');
-        const resultDiv = document.getElementById('result');
-        
-        const labelDiv = document.getElementById('label');
-        const labelName = document.getElementById('label-name');
-        const labelAddress = document.getElementById('label-address');
-        const labelTrackingId = document.getElementById('label-tracking-id');
-        const labelOtp = document.getElementById('label-otp');
-        const qrCodeDiv = document.getElementById('qrcode');
+    <div class="card" style="margin-top: 20px; min-width: 95%;">
+        <h2>सभी बुकिंग्स (OTP के साथ)</h2>
+        <button id="refresh-deliveries-btn">Refresh List</button>
+        <table id="all-deliveries-table">
+            <thead>
+                <tr>
+                    <th>Tracking ID</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>OTP</th>
+                    <th>Payment</th>
+                    <th>Assigned To</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="all-deliveries-body">
+                </tbody>
+        </table>
+    </div>
 
-        bookingForm.addEventListener('submit', async function(e) {
-            e.preventDefault(); 
+    <script>
+        const token = localStorage.getItem('authToken');
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+
+        // --- 1. पेज लोड होते ही लॉगिन चेक करें ---
+        window.onload = () => {
+            if (!token) {
+                window.location.href = '/login'; // लॉगिन नहीं है, तो वापस भेजें
+                return;
+            }
             
-            // Disable button and show loading
+            document.getElementById('admin-name').textContent = localStorage.getItem('userName');
+            
+            loadDeliveryBoys();
+            loadAllDeliveries();
+        };
+
+        // --- 2. डिलीवरी बॉय की लिस्ट लोड करें ---
+        async function loadDeliveryBoys() {
+            const selectBox = document.getElementById('assignedTo');
+            const userList = document.getElementById('delivery-boy-list');
+            selectBox.innerHTML = '<option value="">Select Delivery Boy</option>'; // Reset
+            userList.innerHTML = 'Loading...';
+
+            try {
+                const response = await fetch('/admin/delivery-boys', { headers });
+                if (response.status === 401) window.location.href = '/login';
+                if (!response.ok) throw new Error('Failed to load users');
+                
+                const users = await response.json();
+                userList.innerHTML = ''; // Clear
+                
+                users.forEach(user => {
+                    // Dropdown में डालें
+                    const option = document.createElement('option');
+                    option.value = user._id;
+                    option.textContent = `${user.name} (${user.email})`;
+                    selectBox.appendChild(option);
+                    
+                    // List में डालें
+                    const li = document.createElement('li');
+                    li.textContent = `${user.name} (${user.email})`;
+                    userList.appendChild(li);
+                });
+            } catch (err) {
+                userList.innerHTML = `Error: ${err.message}`;
+            }
+        }
+
+        // --- 3. सभी डिलीवरी की लिस्ट लोड करें ---
+        document.getElementById('refresh-deliveries-btn').onclick = loadAllDeliveries;
+        async function loadAllDeliveries() {
+            const tbody = document.getElementById('all-deliveries-body');
+            tbody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+            
+            try {
+                const response = await fetch('/admin/deliveries', { headers });
+                if (response.status === 401) window.location.href = '/login';
+                if (!response.ok) throw new Error('Failed to load deliveries');
+
+                const deliveries = await response.json();
+                tbody.innerHTML = ''; // Clear loading
+                
+                deliveries.forEach(d => {
+                    const row = document.createElement('tr');
+                    const date = new Date(d.createdAt).toLocaleDateString('en-IN');
+                    
+                    row.innerHTML = `
+                        <td>${d.trackingId}</td>
+                        <td>${d.customerName}</td>
+                        <td><strong>${d.currentStatus}</strong></td>
+                        <td><strong>${d.otp}</strong></td>
+                        <td>${d.paymentMethod} (₹${d.billAmount})</td>
+                        <td>${d.assignedTo ? d.assignedTo.name : 'N/A'}</td>
+                        <td>${date}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="7">Error: ${err.message}</td></tr>`;
+            }
+        }
+
+        // --- 4. बुकिंग फॉर्म का लॉजिक ---
+        const bookingForm = document.getElementById('booking-form');
+        bookingForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submit-btn');
             submitBtn.disabled = true;
             submitBtn.textContent = "Booking...";
+
+            const resultDiv = document.getElementById('result');
+            const labelDiv = document.getElementById('label');
+            const qrTrackingDiv = document.getElementById('qrcode-tracking');
+            const qrPaymentDiv = document.getElementById('qrcode-payment');
+            const qrPaymentContainer = document.getElementById('payment-qr-div');
             
-            // Clear old results
             labelDiv.style.display = 'none';
-            qrCodeDiv.innerHTML = '';
+            document.getElementById('action-buttons').style.display = 'none';
+            qrTrackingDiv.innerHTML = '';
+            qrPaymentDiv.innerHTML = '';
+            qrPaymentContainer.style.display = 'none';
             resultDiv.innerHTML = '';
             resultDiv.className = '';
 
-            const name = document.getElementById('name').value;
-            const address = document.getElementById('address').value;
-            const phone = document.getElementById('phone').value;
+            const formData = {
+                name: document.getElementById('name').value,
+                address: document.getElementById('address').value,
+                phone: document.getElementById('phone').value,
+                paymentMethod: document.getElementById('paymentMethod').value,
+                billAmount: document.getElementById('billAmount').value,
+                assignedTo: document.getElementById('assignedTo').value
+            };
 
             try {
-                const response = await fetch('http://localhost:3000/book', {
+                const response = await fetch('/book', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, address, phone })
+                    headers: headers,
+                    body: JSON.stringify(formData)
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Show text confirmation
                     resultDiv.className = 'success';
-                    resultDiv.innerHTML = `<strong>${data.message}</strong><br>Tracking ID: ${data.trackingId}`;
+                    resultDiv.innerHTML = `<strong>${data.message}</strong><br>Tracking ID: ${data.trackingId} | OTP: ${data.otp}`;
                     
-                    // --- Generate the label ---
-                    labelName.textContent = name;
-                    labelAddress.textContent = address; // Added address to label
-                    labelTrackingId.textContent = data.trackingId;
-                    labelOtp.textContent = data.otp; // Added OTP to label
-                    
-                    // Generate QR code
-                    new QRCode(qrCodeDiv, {
-                        text: data.trackingId,
-                        width: 140,
-                        height: 140
-                    });
+                    // --- नया लेबल जनरेट करें ---
+                    document.getElementById('label-name').textContent = formData.name;
+                    document.getElementById('label-tracking-id').textContent = data.trackingId;
+                    document.getElementById('label-payment-method').textContent = formData.paymentMethod;
 
-                    labelDiv.style.display = 'block'; // Show the label
-                    
+                    // 1. ट्रैकिंग QR कोड
+                    new QRCode(qrTrackingDiv, { text: data.trackingId, width: 128, height: 128 });
+
+                    // 2. पेमेंट QR कोड (अगर COD है)
+                    if (data.upiQrString) {
+                        qrPaymentContainer.style.display = 'block';
+                        document.getElementById('label-bill-amount').textContent = formData.billAmount;
+                        new QRCode(qrPaymentDiv, { text: data.upiQrString, width: 128, height: 128 });
+                    }
+
+                    labelDiv.style.display = 'block';
+                    document.getElementById('action-buttons').style.display = 'block';
+
+                    setupActionButtons(data.trackingId, data.otp, formData.phone);
+                    loadAllDeliveries();
+                    bookingForm.reset();
+
                 } else {
-                    // Show error
                     resultDiv.className = 'error';
                     resultDiv.innerHTML = `<strong>गड़बड़ी:</strong> ${data.message}`;
                 }
 
             } catch (error) {
                 resultDiv.className = 'error';
-                resultDiv.innerHTML = `<strong>सर्वर से कनेक्ट नहीं हो पा रहा है।</strong> (क्या 'node server.js' चल रहा है?)`;
+                resultDiv.innerHTML = `<strong>सर्वर से कनेक्ट नहीं हो पा रहा है।</strong>`;
             }
             
-            // Re-enable button
             submitBtn.disabled = false;
             submitBtn.textContent = "बुक करें";
         });
+        
+        // --- 5. नया डिलीवरी बॉय बनाने का लॉजिक ---
+        document.getElementById('create-boy-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const resultDiv = document.getElementById('create-boy-result');
+            const formData = {
+                name: document.getElementById('boy-name').value,
+                email: document.getElementById('boy-email').value,
+                password: document.getElementById('boy-password').value
+            };
+            
+            resultDiv.textContent = 'Creating...';
+            resultDiv.className = '';
+
+            try {
+                const response = await fetch('/admin/create-delivery-boy', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(formData)
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'success';
+                    resultDiv.textContent = data.message;
+                    form.reset();
+                    loadDeliveryBoys(); // लिस्ट रीफ्रेश करें
+                } else {
+                    resultDiv.className = 'error';
+                    resultDiv.textContent = `Error: ${data.message}`;
+                }
+            } catch (err) {
+                resultDiv.className = 'error';
+                resultDiv.textContent = 'Server error.';
+            }
+        });
+
+
+        // --- 6. एक्शन बटन (Print/Share) ---
+        function setupActionButtons(trackingId, otp, phone) {
+            document.getElementById('share-btn').onclick = () => {
+                const shareText = `Thanks for choosing Sahyog Medical!\nYour Tracking ID: ${trackingId}\nYour OTP for delivery: ${otp}\nTrack here: ${window.location.origin}/track`;
+                
+                if (navigator.share) {
+                    navigator.share({ title: 'Your Order is Booked!', text: shareText });
+                } else {
+                    navigator.clipboard.writeText(shareText);
+                    alert('Tracking details copied to clipboard!');
+                }
+            };
+            
+            document.getElementById('print-btn').onclick = () => {
+                const labelContent = document.getElementById('label').innerHTML;
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`<html><head><title>Print Label</title><style>
+                    body{font-family:Arial,sans-serif;} 
+                    #qr-container { display: flex; justify-content: space-around; }
+                    #qrcode-tracking img, #qrcode-payment img { width: 128px; height: 128px; }
+                    @media print { body { -webkit-print-color-adjust: exact; } }
+                </style></head><body>`);
+                printWindow.document.write(labelContent);
+                printWindow.document.write('</body></html>');
+                printWindow.document.close();
+                printWindow.print();
+            };
+        }
+
+        // --- 7. Helper Functions ---
+        function toggleBillAmount(value) {
+            document.getElementById('billAmountDiv').style.display = (value === 'COD') ? 'block' : 'none';
+        }
+        
+        document.getElementById('logout-btn').onclick = () => {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userName');
+            window.location.href = '/login';
+        };
     </script>
 </body>
 </html>
