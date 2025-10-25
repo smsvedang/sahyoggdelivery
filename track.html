@@ -32,8 +32,8 @@
             resultDiv.innerHTML = "स्टेटस पता किया जा रहा है...";
 
             try {
-                // यह 'fetch' हमारे Node.js सर्वर (server.js) को कॉल कर रहा है
-                const response = await fetch(`http://localhost:3000/track/${trackingId}`);
+                // *** RENDER FIX: 'http://localhost:3000' ko hata diya ***
+                const response = await fetch(`/track/${trackingId}`);
                 
                 const data = await response.json();
 
