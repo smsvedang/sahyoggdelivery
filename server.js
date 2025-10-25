@@ -147,7 +147,8 @@ app.post('/delivery/complete', async (req, res) => {
 });
 
 // --- 8. Start Server (Same as before) ---
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; 
+
 app.listen(PORT, () => {
-    console.log(`सर्वर http://localhost:${PORT} पर चल रहा है`);
+    console.log(`सर्वर ${PORT} पर चल रहा है`);
 });
