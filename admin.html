@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sahyog - Admin Dashboard</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        /* --- Basic Setup --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        
+        /* --- Layout --- */
+        .container {
+            display: flex;
+            flex-wrap: wrap; /* Allows stacking on small screens */
+            gap: 20px;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 25px;
+            flex: 1; /* Both cards take equal space */
+            min-width: 350px; /* Minimum width before stacking */
+        }
+        .card h2 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        /* --- Form Styles --- */
+        #booking-form label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        #booking-form input {
+            width: 95%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        #booking-form button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+        #booking-form button:disabled {
+            background-color: #aaa;
+        }
+
+        /* --- Result & Label Styles --- */
+        #result-area {
+            background-color: #f9f9f9;
+        }
+        #result {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        #result.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        #result.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        /* --- Printable Label --- */
+        #label {
+            border: 2px dashed #333;
+            padding: 20px;
+            display: none; /* Hide initially */
+        }
+        #label-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        #label-header h3 {
+            margin: 0;
+            font-size: 20px;
+        }
+        #label-header span {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        #label-details p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        #qrcode {
+            margin: 20px auto 10px auto; /* Center the QR code */
+            width: 140px;
+            height: 140px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>सहयोग मेडिकल - एडमिन डैशबोर्ड</h1>
+
+    <div class="container">
+        
+        <div class="card" id="booking-area">
+            <h2>नया कूरियर बुक करें</h2>
+            <form id="booking-form">
+                <label for="name">कस्टमर का नाम:</label>
+                <input type="text" id="name" required>
+                
+                <label for="address">कस्टमर का पता:</label>
+                <input type="text" id="address" required>
+                
+                <label for="phone">कस्टमर का फ़ोन:</label>
+                <input type="text" id="phone" required>
+                
+                <button type="submit" id="submit-btn">बुक करें</button>
+            </form>
+        </div>
+        
+        <div class="card" id="result-area">
+            <h2>बुकिंग स्टेटस</h2>
+            
+            <div id="result">
+                <p>कृपया बुकिंग डिटेल्स भरें...</p>
+            </div>
+            
+            <div id="label">
+                <div id="label-header">
+                    <h3>Sahyog Medical</h3>
+                    <span>HOME DELIVERY</span>
+                </div>
+                <div id="label-details">
+                    <p><strong>TO:</strong> <span id="label-name"></span></p>
+                    <p><strong>ADDRESS:</strong> <span id="label-address"></span></p>
+                    <p><strong>TRACKING ID:</strong> <span id="label-tracking-id"></span></p>
+                    <p><strong>OTP:</strong> <span id="label-otp" style="font-weight:bold; font-size: 18px;"></span></p>
+                </div>
+                <div id="qrcode"></div>
+                <p style="text-align:center; font-size: 14px; color: #555;">Scan to start delivery</p>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const bookingForm = document.getElementById('booking-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const resultDiv = document.getElementById('result');
+        
+        const labelDiv = document.getElementById('label');
+        const labelName = document.getElementById('label-name');
+        const labelAddress = document.getElementById('label-address');
+        const labelTrackingId = document.getElementById('label-tracking-id');
+        const labelOtp = document.getElementById('label-otp');
+        const qrCodeDiv = document.getElementById('qrcode');
+
+        bookingForm.addEventListener('submit', async function(e) {
+            e.preventDefault(); 
+            
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Booking...";
+            
+            // Clear old results
+            labelDiv.style.display = 'none';
+            qrCodeDiv.innerHTML = '';
+            resultDiv.innerHTML = '';
+            resultDiv.className = '';
+
+            const name = document.getElementById('name').value;
+            const address = document.getElementById('address').value;
+            const phone = document.getElementById('phone').value;
+
+            try {
+                const response = await fetch('http://localhost:3000/book', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, address, phone })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Show text confirmation
+                    resultDiv.className = 'success';
+                    resultDiv.innerHTML = `<strong>${data.message}</strong><br>Tracking ID: ${data.trackingId}`;
+                    
+                    // --- Generate the label ---
+                    labelName.textContent = name;
+                    labelAddress.textContent = address; // Added address to label
+                    labelTrackingId.textContent = data.trackingId;
+                    labelOtp.textContent = data.otp; // Added OTP to label
+                    
+                    // Generate QR code
+                    new QRCode(qrCodeDiv, {
+                        text: data.trackingId,
+                        width: 140,
+                        height: 140
+                    });
+
+                    labelDiv.style.display = 'block'; // Show the label
+                    
+                } else {
+                    // Show error
+                    resultDiv.className = 'error';
+                    resultDiv.innerHTML = `<strong>गड़बड़ी:</strong> ${data.message}`;
+                }
+
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `<strong>सर्वर से कनेक्ट नहीं हो पा रहा है।</strong> (क्या 'node server.js' चल रहा है?)`;
+            }
+            
+            // Re-enable button
+            submitBtn.disabled = false;
+            submitBtn.textContent = "बुक करें";
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Your Order</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        input { width: 250px; padding: 8px; }
+        button { padding: 10px 15px; }
+        #status-result { margin-top: 20px; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+    <h1>अपना ऑर्डर ट्रैक करें</h1>
+    <input type="text" id="tracking-id" placeholder="Tracking ID डालें (जैसे SAHYOG-...)">
+    <button id="track-btn">ट्रैक करें</button>
+    
+    <div id="status-result"></div>
+
+    <script>
+        document.getElementById('track-btn').addEventListener('click', async function() {
+            
+            const trackingId = document.getElementById('tracking-id').value.trim();
+            const resultDiv = document.getElementById('status-result');
+
+            if (!trackingId) {
+                resultDiv.innerHTML = "<p style='color:red;'>कृपया ट्रैकिंग ID डालें।</p>";
+                return;
+            }
+
+            resultDiv.innerHTML = "स्टेटस पता किया जा रहा है...";
+
+            try {
+                // यह 'fetch' हमारे Node.js सर्वर (server.js) को कॉल कर रहा है
+                const response = await fetch(`http://localhost:3000/track/${trackingId}`);
+                
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <p><strong>Tracking ID:</strong> ${data.trackingId}</p>
+                        <p><strong>कस्टमर:</strong> ${data.customerName}</p>
+                        <p style="color:blue; font-weight:bold;"><strong>स्टेटस:</strong> ${data.status}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p style='color:red;'><strong>गड़बड़ी:</strong> ${data.message}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<strong>सर्वर से कनेक्ट नहीं हो पा रहा है।</strong>`;
+            }
+        });
+    </script>
+</body>
+</html>
