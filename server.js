@@ -1,20 +1,28 @@
-// --- Sahyog Medical Delivery Backend (server.js) ---
+// --- Sahyog Medical Delivery Backend (server.js) - FINAL ---
 
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path'); // HTML पेजों के लिए ज़रूरी
 
 const app = express();
-app.use(cors()); 
-app.use(express.json()); 
+app.use(cors());
+app.use(express.json());
 
-// --- 1. MongoDB Connection (Same as before) ---
-const MONGO_URI = 'mongodb+srv://vedangsoni:sonivedang@sahyogdelivery.irbiwg9.mongodb.net/sahyogMedicalDB?retryWrites=true&w=majority';
+// --- 1. MongoDB से कनेक्ट करें ---
+// Render (aur Vercel) के Environment Variable से URI को सुरक्षित रूप से पढ़ें
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+    console.error('MongoDB Connection String (MONGO_URI) is not defined in Environment Variables.');
+    process.exit(1); // सर्वर को बंद कर दें अगर URI नहीं मिली
+}
+
 mongoose.connect(MONGO_URI)
     .then(() => console.log('MongoDB से जुड़ गए!'))
     .catch(err => console.error('MongoDB से जुड़ने में गड़बड़ी:', err));
 
-// --- 2. Schema (Same as before) ---
+// --- 2. कूरियर का "Schema" (ढाँचा) बनाएँ ---
 const deliverySchema = new mongoose.Schema({
     customerName: String,
     customerAddress: String,
@@ -30,11 +38,39 @@ const deliverySchema = new mongoose.Schema({
 
 const Delivery = mongoose.model('Delivery', deliverySchema);
 
-// --- 3. /book API (Same as before) ---
+// --- 3. HTML पेजों को सर्व (Serve) करने के लिए (Render के लिए ज़रूरी) ---
+
+// 3.1 होमपेज (index.html) के लिए
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// 3.2 एडमिन (admin.html) के लिए
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+// 3.3 ट्रैकिंग (track.html) के लिए
+app.get('/track', (req, res) => {
+    res.sendFile(path.join(__dirname, 'track.html'));
+});
+
+// 3.4 डिलीवरी (delivery.html) के लिए
+app.get('/delivery', (req, res) => {
+    res.sendFile(path.join(__dirname, 'delivery.html'));
+});
+
+// --- 4. API Routes (यहाँ से असली लॉजिक शुरू होता है) ---
+
+// 4.1 कूरियर बुक करने के लिए API
 app.post('/book', async (req, res) => {
     try {
         const { name, address, phone } = req.body;
+
+        // 4-डिजिट का OTP बनाएँ
         const otp = Math.floor(1000 + Math.random() * 9000).toString();
+        
+        // यूनिक ट्रैकिंग ID बनाएँ
         const trackingId = 'SAHYOG-' + Date.now().toString().slice(-6);
 
         const newDelivery = new Delivery({
@@ -49,6 +85,7 @@ app.post('/book', async (req, res) => {
         await newDelivery.save();
         
         console.log('नया कूरियर बुक हुआ:', trackingId);
+        // एडमिन को OTP और Tracking ID वापस भेजें
         res.json({
             message: 'कूरियर बुक हो गया!',
             trackingId: trackingId,
@@ -60,7 +97,7 @@ app.post('/book', async (req, res) => {
     }
 });
 
-// --- 4. /track API (Same as before) ---
+// 4.2 कूरियर ट्रैक करने के लिए API
 app.get('/track/:trackingId', async (req, res) => {
     try {
         const delivery = await Delivery.findOne({ trackingId: req.params.trackingId });
@@ -69,6 +106,7 @@ app.get('/track/:trackingId', async (req, res) => {
             return res.status(404).json({ message: 'यह ट्रैकिंग ID नहीं मिला' });
         }
         
+        // कस्टमर को सिर्फ ज़रूरी जानकारी भेजें
         res.json({
             trackingId: delivery.trackingId,
             status: delivery.status,
@@ -81,7 +119,7 @@ app.get('/track/:trackingId', async (req, res) => {
     }
 });
 
-// --- (STEP 2) 5. NEW API: Get all "Booked" deliveries ---
+// 4.3 सभी "Booked" deliveries पाने के लिए API (Delivery Boy के लिए)
 app.get('/deliveries/booked', async (req, res) => {
     try {
         const deliveries = await Delivery.find({ status: 'Booked' }).sort({ bookedAt: 1 });
@@ -91,7 +129,7 @@ app.get('/deliveries/booked', async (req, res) => {
     }
 });
 
-// --- (STEP 2) 6. NEW API: Start Delivery (Scan QR) ---
+// 4.4 Delivery Start करने के लिए API (Scan QR)
 app.post('/delivery/start', async (req, res) => {
     try {
         const { trackingId } = req.body;
@@ -116,7 +154,7 @@ app.post('/delivery/start', async (req, res) => {
     }
 });
 
-// --- (STEP 2) 7. NEW API: Complete Delivery (Verify OTP) ---
+// 4.5 Delivery Complete करने के लिए API (Verify OTP)
 app.post('/delivery/complete', async (req, res) => {
     try {
         const { trackingId, otp } = req.body;
@@ -146,7 +184,10 @@ app.post('/delivery/complete', async (req, res) => {
     }
 });
 
-// --- 8. Start Server (Same as before) ---
+
+// --- 5. सर्वर शुरू करें (Render के लिए अपडेटेड) ---
+// Render humein batata hai ki kaun sa PORT use karna hai
+// 'process.env.PORT' Render ka port hota hai, aur 3000 humara local fallback
 const PORT = process.env.PORT || 3000; 
 
 app.listen(PORT, () => {
