@@ -149,7 +149,10 @@ app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'login.html'))
 // लेकिन उनके अंदर का JavaScript लॉगिन चेक करेगा)
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 app.get('/delivery', (req, res) => res.sendFile(path.join(__dirname, 'delivery.html')));
-
+app.get('/service-worker.js', (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.sendFile(path.join(__dirname, 'service-worker.js'));
+});
 
 // --- 7. मुख्य API Routes (Admin) ---
 
