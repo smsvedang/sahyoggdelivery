@@ -30,46 +30,49 @@
     </div>
 
     <script>
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const messageDiv = document.getElementById('message');
-            messageDiv.textContent = 'Logging in...';
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const messageDiv = document.getElementById('message');
+        messageDiv.textContent = 'Logging in...';
 
-            try {
-                const response = await fetch('/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
+        try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
 
-                const data = await response.json();
+            const data = await response.json();
 
-                if (response.ok) {
-                    messageDiv.style.color = 'green';
-                    messageDiv.textContent = data.message;
-                    
-                    // --- सबसे ज़रूरी: टोकन (Token) को सेव करें ---
-                    localStorage.setItem('authToken', data.token);
-                    localStorage.setItem('userName', data.name);
-                    
-                    // --- रोल (Role) के हिसाब से सही पेज पर भेजें ---
-                    if (data.role === 'admin') {
-                        window.location.href = '/admin'; // एडमिन पैनल पर जाएँ
-                    } else if (data.role === 'delivery') {
-                        window.location.href = '/delivery'; // डिलीवरी पैनल पर जाएँ
-                    }
-                } else {
-                    messageDiv.style.color = 'red';
-                    messageDiv.textContent = `Error: ${data.message}`;
+            if (response.ok) {
+                messageDiv.style.color = 'green';
+                messageDiv.textContent = data.message;
+                
+                // --- (ज़रूरी बदलाव) ---
+                // अब हम रोल (Role) को भी सेव कर रहे हैं
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('userName', data.name);
+                localStorage.setItem('userRole', data.role); // <-- यह नई लाइन है
+                // -------------------------
+                
+                // --- रोल (Role) के हिसाब से सही पेज पर भेजें ---
+                if (data.role === 'admin') {
+                    window.location.href = '/admin'; // एडमिन पैनल पर जाएँ
+                } else if (data.role === 'delivery') {
+                    window.location.href = '/delivery'; // डिलीवरी पैनल पर जाएँ
                 }
-            } catch (err) {
+            } else {
                 messageDiv.style.color = 'red';
-                messageDiv.textContent = 'Error connecting to server.';
+                messageDiv.textContent = `Error: ${data.message}`;
             }
-        });
-    </script>
+        } catch (err) {
+            messageDiv.style.color = 'red';
+            messageDiv.textContent = 'Error connecting to server.';
+        }
+    });
+</script>
 </body>
 </html>

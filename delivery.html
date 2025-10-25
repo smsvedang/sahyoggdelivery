@@ -42,173 +42,41 @@
     <div id="otp-result" class="message" style="display:none;"></div>
 
     <script>
-        const token = localStorage.getItem('authToken');
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-        const scanResultDiv = document.getElementById('scan-result');
-        const otpResultDiv = document.getElementById('otp-result');
-        const pendingList = document.getElementById('pending-list');
+    const token = localStorage.getItem('authToken');
+    const role = localStorage.getItem('userRole'); // नया: रोल (Role) को पढ़ना
+    
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+    };
+    // ... (बाकी के variable definitions) ...
 
-        // --- 1. पेज लोड होते ही लॉगिन चेक करें ---
-        window.onload = () => {
-            if (!token) {
-                window.location.href = '/login'; // लॉगिन नहीं है, तो वापस भेजें
-                return;
-            }
-            document.getElementById('delivery-name').textContent = localStorage.getItem('userName');
-            loadAssignedDeliveries();
-            startScanner(); // स्कैनर शुरू करें
-        };
-
-        // --- 2. उसे असाइन की गई डिलीवरी लोड करें ---
-        document.getElementById('fetch-pending').onclick = loadAssignedDeliveries;
-        async function loadAssignedDeliveries() {
-            pendingList.innerHTML = '<li>Loading...</li>';
-            try {
-                const response = await fetch('/delivery/my-deliveries', { headers });
-                if (response.status === 401) window.location.href = '/login';
-
-                const deliveries = await response.json();
-                pendingList.innerHTML = ''; // Clear list
-                
-                if (deliveries.length === 0) {
-                    pendingList.innerHTML = '<li>No pending deliveries assigned to you.</li>';
-                }
-                
-                deliveries.forEach(d => {
-                    const li = document.createElement('li');
-                    li.innerHTML = `
-                        <strong>${d.trackingId} (Status: ${d.currentStatus})</strong><br>
-                        ${d.customerName}<br>
-                        ${d.customerAddress}<br>
-                        <strong>Payment: ${d.paymentMethod} (₹${d.billAmount})</strong>
-                    `;
-                    pendingList.appendChild(li);
-                });
-            } catch (err) {
-                pendingList.innerHTML = `<li>Error loading deliveries: ${err.message}</li>`;
-            }
-        }
-
-        // --- 3. QR Code Scanner ---
-        const html5QrCode = new Html5Qrcode("reader");
-        function startScanner() {
-             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-             html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
-                .catch(err => {
-                    console.log("Scanner start error:", err);
-                });
-        }
-       
-        const qrCodeSuccessCallback = async (decodedText, decodedResult) => {
-            html5QrCode.stop(); // Stop scanning
-            scanResultDiv.style.display = 'block';
-            scanResultDiv.className = 'message';
-            scanResultDiv.innerHTML = `Scanned: ${decodedText}. Updating status...`;
-
-            try {
-                const response = await fetch('/delivery/start', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ trackingId: decodedText })
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    scanResultDiv.className = 'message success';
-                    scanResultDiv.innerHTML = `Success! ${data.trackingId} is now ${data.status}.`;
-                    loadAssignedDeliveries(); // लिस्ट रीफ्रेश करें
-                } else {
-                    scanResultDiv.className = 'message error';
-                    scanResultDiv.innerHTML = `Error: ${data.message}`;
-                }
-            } catch (err) {
-                scanResultDiv.className = 'message error';
-                scanResultDiv.innerHTML = `Error connecting to server.`;
-            }
-            setTimeout(startScanner, 3000); // 3 सेकंड बाद स्कैनर फिर से शुरू करें
-        };
-        
-
-        // --- 4. Complete Delivery (OTP) ---
-        document.getElementById('complete-btn').addEventListener('click', async () => {
-            const trackingId = document.getElementById('otp-tracking-id').value;
-            const otp = document.getElementById('otp-code').value;
-            
-            otpResultDiv.style.display = 'block';
-            otpResultDiv.className = 'message';
-            otpResultDiv.innerHTML = 'Verifying OTP...';
-
-            if (!trackingId || !otp) {
-                otpResultDiv.className = 'message error';
-                otpResultDiv.innerHTML = 'Please enter Tracking ID and OTP.';
-                return;
-            }
-
-            try {
-                const response = await fetch('/delivery/complete', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ trackingId, otp })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    otpResultDiv.className = 'message success';
-                    otpResultDiv.innerHTML = `Success! ${data.trackingId} is ${data.status}.`;
-                    loadAssignedDeliveries(); // लिस्ट रीफ्रेश करें
-                } else {
-                    otpResultDiv.className = 'message error';
-                    otpResultDiv.innerHTML = `Error: ${data.message}`;
-                }
-            } catch (err) {
-                otpResultDiv.className = 'message error';
-                otpResultDiv.innerHTML = 'Error connecting to server.';
-            }
-        });
-
-        // --- 5. Push Notification ---
-        document.getElementById('enable-notifications').onclick = async () => {
-            if ('serviceWorker' in navigator && 'PushManager' in window) {
-                try {
-                    const reg = await navigator.serviceWorker.register('/service-worker.js');
-                    const sub = await reg.pushManager.getSubscription();
-                    if (sub) {
-                        alert('You are already subscribed.');
-                    } else {
-                        const publicKeyRes = await fetch('/vapid-public-key');
-                        const publicKey = await publicKeyRes.text();
-                        
-                        const newSub = await reg.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: publicKey
-                        });
-                        
-                        await fetch('/subscribe', {
-                            method: 'POST',
-                            headers: headers,
-                            body: JSON.stringify(newSub)
-                        });
-                        alert('Notifications enabled!');
-                    }
-                } catch (err) {
-                    alert('Failed to enable notifications. ' + err.message);
-                }
-            } else {
-                alert('Push notifications are not supported on this browser.');
-            }
-        };
-
-        // --- 6. Logout ---
-        document.getElementById('logout-btn').onclick = () => {
+    // --- 1. (सबसे ज़रूरी) सिक्योरिटी गार्ड ---
+    window.onload = () => {
+        // अगर टोकन नहीं है या रोल 'delivery' नहीं है, तो बाहर निकालो
+        if (!token || role !== 'delivery') {
             localStorage.removeItem('authToken');
             localStorage.removeItem('userName');
-            window.location.href = '/login';
-        };
-    </script>
+            localStorage.removeItem('userRole');
+            window.location.href = '/login'; // लॉगिन पेज पर वापस भेजें
+            return; // बाकी का कोड मत चलाओ
+        }
+
+        // अगर डिलीवरी बॉय है, तो ही पेज लोड करो
+        document.getElementById('delivery-name').textContent = localStorage.getItem('userName');
+        loadAssignedDeliveries();
+        startScanner(); // स्कैनर शुरू करें
+    };
+
+    // ... (बाकी का सारा JavaScript कोड जैसा था वैसा ही रहेगा) ...
+
+    // --- 6. Logout --- (इसे भी अपडेट करें)
+    document.getElementById('logout-btn').onclick = () => {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userRole'); // रोल (Role) को भी हटाएँ
+        window.location.href = '/login';
+    };
+</script>
 </body>
 </html>

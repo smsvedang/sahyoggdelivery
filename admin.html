@@ -10,6 +10,15 @@
         h1, h2 { color: #333; }
         .header { display: flex; justify-content: space-between; align-items: center; }
         .header button { padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* --- नया: टैब (Tab) का स्टाइल --- */
+        .tab-bar { border-bottom: 2px solid #ccc; }
+        .tab-bar button { background: #eee; border: none; padding: 10px 15px; cursor: pointer; font-size: 16px; border-radius: 5px 5px 0 0; }
+        .tab-bar button.active { background: #fff; border-bottom: 2px solid #007bff; }
+        .tab-content { display: none; padding-top: 20px; }
+        .tab-content.active { display: block; }
+        /* ------------------------------ */
+
         .container { display: flex; flex-wrap: wrap; gap: 20px; }
         .card { background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 25px; flex: 1; min-width: 400px; }
         form label { display: block; font-weight: 600; margin-bottom: 5px; color: #555; }
@@ -35,66 +44,92 @@
         <button id="logout-btn">Logout</button>
     </div>
 
-    <div class="container">
-        <div class="card" id="booking-area">
-            <h2>नया कूरियर बुक करें</h2>
-            <form id="booking-form">
-                <label for="name">कस्टमर का नाम:</label>
-                <input type="text" id="name" required>
-                <label for="address">कस्टमर का पता:</label>
-                <input type="text" id="address" required>
-                <label for="phone">कस्टमर का फ़ोन:</label>
-                <input type="text" id="phone" required>
+    <div class="tab-bar">
+        <button class="tab-link active" onclick="openTab(event, 'tab-book')">नया कूरियर</button>
+        <button class="tab-link" onclick="openTab(event, 'tab-deliveries')">सभी डिलीवरी</button>
+        <button class="tab-link" onclick="openTab(event, 'tab-manage')">यूज़र मैनेज करें</button>
+    </div>
 
-                <label for="paymentMethod">पेमेंट मोड:</label>
-                <select id="paymentMethod" onchange="toggleBillAmount(this.value)">
-                    <option value="Prepaid">Prepaid</option>
-                    <option value="COD">COD (Cash on Delivery)</option>
-                </select>
-
-                <div id="billAmountDiv" style="display:none;">
-                    <label for="billAmount">बिल अमाउंट (₹):</label>
-                    <input type="number" id="billAmount" value="0" min="0">
-                </div>
-                
-                <label for="assignedTo">किसको असाइन करें:</label>
-                <select id="assignedTo">
-                    <option value="">Select Delivery Boy</option>
+    <div id="tab-book" class="tab-content active">
+        <div class="container">
+            <div class="card" id="booking-area">
+                <h2>नया कूरियर बुक करें</h2>
+                <form id="booking-form">
+                    <label for="name">कस्टमर का नाम:</label>
+                    <input type="text" id="name" required>
+                    <label for="address">कस्टमर का पता:</label>
+                    <input type="text" id="address" required>
+                    <label for="phone">कस्टमर का फ़ोन:</label>
+                    <input type="text" id="phone" required>
+                    <label for="paymentMethod">पेमेंट मोड:</label>
+                    <select id="paymentMethod" onchange="toggleBillAmount(this.value)">
+                        <option value="Prepaid">Prepaid</option>
+                        <option value="COD">COD (Cash on Delivery)</option>
                     </select>
-                
-                <button type="submit" id="submit-btn">बुक करें</button>
-            </form>
-        </div>
-        
-        <div class="card" id="result-area">
-            <h2>बुकिंग स्टेटस</h2>
-            <div id="result"><p>कृपया बुकिंग डिटेल्स भरें...</p></div>
+                    <div id="billAmountDiv" style="display:none;">
+                        <label for="billAmount">बिल अमाउंट (₹):</label>
+                        <input type="number" id="billAmount" value="0" min="0">
+                    </div>
+                    <label for="assignedTo">किसको असाइन करें:</label>
+                    <select id="assignedTo">
+                        <option value="">Select Delivery Boy</option>
+                        </select>
+                    <button type="submit" id="submit-btn">बुक करें</button>
+                </form>
+            </div>
             
-            <div id="action-buttons" style="display:none;">
-                <button id="print-btn">🖨️ Print Label</button>
-                <button id="share-btn">✉️ Share with Customer</button>
-            </div>
-
-            <div id="label">
-                <div id="label-header">
-                    <h3>Sahyog Medical</h3>
-                    <span id="label-payment-method" style="font-weight:bold;"></span>
+            <div class="card" id="result-area">
+                <h2>बुकिंग स्टेटस</h2>
+                <div id="result"><p>कृपया बुकिंग डिटेल्स भरें...</p></div>
+                <div id="action-buttons" style="display:none;">
+                    <button id="print-btn">🖨️ Print Label</button>
+                    <button id="share-btn">✉️ Share with Customer</button>
                 </div>
-                <p><strong>TO:</strong> <span id="label-name"></span></p>
-                <p><strong>TRACKING ID:</strong> <span id="label-tracking-id"></span></p>
-                <div id="qr-container">
-                    <div>
-                        <div id="qrcode-tracking"></div>
-                        <small>Scan to Track/Update</small>
+                <div id="label">
+                    <div id="label-header">
+                        <h3>Sahyog Medical</h3>
+                        <span id="label-payment-method" style="font-weight:bold;"></span>
                     </div>
-                    <div id="payment-qr-div" style="display:none;">
-                        <div id="qrcode-payment"></div>
-                        <small><strong>Scan to Pay (Bill: ₹<span id="label-bill-amount"></span>)</strong></small>
+                    <p><strong>TO:</strong> <span id="label-name"></span></p>
+                    <p><strong>TRACKING ID:</strong> <span id="label-tracking-id"></span></p>
+                    <div id="qr-container">
+                        <div>
+                            <div id="qrcode-tracking"></div>
+                            <small>Scan to Track/Update</small>
+                        </div>
+                        <div id="payment-qr-div" style="display:none;">
+                            <div id="qrcode-payment"></div>
+                            <small><strong>Scan to Pay (Bill: ₹<span id="label-bill-amount"></span>)</strong></small>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
+    <div id="tab-deliveries" class="tab-content">
+        <div class="card" style="min-width: 95%;">
+            <h2>सभी बुकिंग्स (OTP के साथ)</h2>
+            <button id="refresh-deliveries-btn">Refresh List</button>
+            <table id="all-deliveries-table">
+                <thead>
+                    <tr>
+                        <th>Tracking ID</th>
+                        <th>Customer</th>
+                        <th>Status</th>
+                        <th>OTP</th>
+                        <th>Payment</th>
+                        <th>Assigned To</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="all-deliveries-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-manage" class="tab-content">
         <div class="card" id="manage-boys-area">
             <h2>Manage Delivery Boys</h2>
             <form id="create-boy-form">
@@ -112,47 +147,53 @@
         </div>
     </div>
 
-    <div class="card" style="margin-top: 20px; min-width: 95%;">
-        <h2>सभी बुकिंग्स (OTP के साथ)</h2>
-        <button id="refresh-deliveries-btn">Refresh List</button>
-        <table id="all-deliveries-table">
-            <thead>
-                <tr>
-                    <th>Tracking ID</th>
-                    <th>Customer</th>
-                    <th>Status</th>
-                    <th>OTP</th>
-                    <th>Payment</th>
-                    <th>Assigned To</th>
-                    <th>Date</th>
-                </tr>
-            </thead>
-            <tbody id="all-deliveries-body">
-                </tbody>
-        </table>
-    </div>
-
     <script>
         const token = localStorage.getItem('authToken');
+        const role = localStorage.getItem('userRole'); // नया: रोल (Role) को पढ़ना
+        
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         };
 
-        // --- 1. पेज लोड होते ही लॉगिन चेक करें ---
+        // --- 1. (सबसे ज़रूरी) सिक्योरिटी गार्ड ---
         window.onload = () => {
-            if (!token) {
-                window.location.href = '/login'; // लॉगिन नहीं है, तो वापस भेजें
-                return;
+            // अगर टोकन नहीं है या रोल 'admin' नहीं है, तो बाहर निकालो
+            if (!token || role !== 'admin') {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('userName');
+                localStorage.removeItem('userRole');
+                window.location.href = '/login'; // लॉगिन पेज पर वापस भेजें
+                return; // बाकी का कोड मत चलाओ
             }
             
+            // अगर एडमिन है, तो ही पेज लोड करो
             document.getElementById('admin-name').textContent = localStorage.getItem('userName');
-            
             loadDeliveryBoys();
             loadAllDeliveries();
         };
 
-        // --- 2. डिलीवरी बॉय की लिस्ट लोड करें ---
+        // --- 2. टैब (Tab) का लॉजिक ---
+        function openTab(event, tabName) {
+            let i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tab-link");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            event.currentTarget.className += " active";
+            
+            // अगर "All Deliveries" टैब खोला है, तो लिस्ट रीफ्रेश करें
+            if (tabName === 'tab-deliveries') {
+                loadAllDeliveries();
+            }
+        }
+
+        // --- 3. डिलीवरी बॉय की लिस्ट लोड करें ---
         async function loadDeliveryBoys() {
             const selectBox = document.getElementById('assignedTo');
             const userList = document.getElementById('delivery-boy-list');
@@ -168,13 +209,11 @@
                 userList.innerHTML = ''; // Clear
                 
                 users.forEach(user => {
-                    // Dropdown में डालें
                     const option = document.createElement('option');
                     option.value = user._id;
                     option.textContent = `${user.name} (${user.email})`;
                     selectBox.appendChild(option);
                     
-                    // List में डालें
                     const li = document.createElement('li');
                     li.textContent = `${user.name} (${user.email})`;
                     userList.appendChild(li);
@@ -184,7 +223,7 @@
             }
         }
 
-        // --- 3. सभी डिलीवरी की लिस्ट लोड करें ---
+        // --- 4. सभी डिलीवरी की लिस्ट लोड करें ---
         document.getElementById('refresh-deliveries-btn').onclick = loadAllDeliveries;
         async function loadAllDeliveries() {
             const tbody = document.getElementById('all-deliveries-body');
@@ -218,7 +257,7 @@
             }
         }
 
-        // --- 4. बुकिंग फॉर्म का लॉजिक ---
+        // --- 5. बुकिंग फॉर्म का लॉजिक ---
         const bookingForm = document.getElementById('booking-form');
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -263,15 +302,11 @@
                     resultDiv.className = 'success';
                     resultDiv.innerHTML = `<strong>${data.message}</strong><br>Tracking ID: ${data.trackingId} | OTP: ${data.otp}`;
                     
-                    // --- नया लेबल जनरेट करें ---
                     document.getElementById('label-name').textContent = formData.name;
                     document.getElementById('label-tracking-id').textContent = data.trackingId;
                     document.getElementById('label-payment-method').textContent = formData.paymentMethod;
-
-                    // 1. ट्रैकिंग QR कोड
                     new QRCode(qrTrackingDiv, { text: data.trackingId, width: 128, height: 128 });
 
-                    // 2. पेमेंट QR कोड (अगर COD है)
                     if (data.upiQrString) {
                         qrPaymentContainer.style.display = 'block';
                         document.getElementById('label-bill-amount').textContent = formData.billAmount;
@@ -280,7 +315,6 @@
 
                     labelDiv.style.display = 'block';
                     document.getElementById('action-buttons').style.display = 'block';
-
                     setupActionButtons(data.trackingId, data.otp, formData.phone);
                     loadAllDeliveries();
                     bookingForm.reset();
@@ -299,7 +333,7 @@
             submitBtn.textContent = "बुक करें";
         });
         
-        // --- 5. नया डिलीवरी बॉय बनाने का लॉजिक ---
+        // --- 6. नया डिलीवरी बॉय बनाने का लॉजिक ---
         document.getElementById('create-boy-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const form = e.target;
@@ -336,12 +370,10 @@
             }
         });
 
-
-        // --- 6. एक्शन बटन (Print/Share) ---
+        // --- 7. एक्शन बटन (Print/Share) ---
         function setupActionButtons(trackingId, otp, phone) {
             document.getElementById('share-btn').onclick = () => {
                 const shareText = `Thanks for choosing Sahyog Medical!\nYour Tracking ID: ${trackingId}\nYour OTP for delivery: ${otp}\nTrack here: ${window.location.origin}/track`;
-                
                 if (navigator.share) {
                     navigator.share({ title: 'Your Order is Booked!', text: shareText });
                 } else {
@@ -366,7 +398,7 @@
             };
         }
 
-        // --- 7. Helper Functions ---
+        // --- 8. Helper Functions ---
         function toggleBillAmount(value) {
             document.getElementById('billAmountDiv').style.display = (value === 'COD') ? 'block' : 'none';
         }
@@ -374,6 +406,7 @@
         document.getElementById('logout-btn').onclick = () => {
             localStorage.removeItem('authToken');
             localStorage.removeItem('userName');
+            localStorage.removeItem('userRole'); // रोल (Role) को भी हटाएँ
             window.location.href = '/login';
         };
     </script>
