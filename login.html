@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sahyog Medical</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f4f7f6; }
+        .login-card { background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 300px; }
+        .login-card h2 { text-align: center; margin-top: 0; }
+        .login-card label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .login-card input { width: 93%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .login-card button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        #message { margin-top: 15px; text-align: center; color: red; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>Login</h2>
+        <form id="login-form">
+            <label for="email">Username (Email):</label>
+            <input type="text" id="email" required>
+            
+            <label for="password">Password:</label>
+            <input type="password" id="password" required>
+            
+            <button type="submit">Login</button>
+        </form>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = 'Logging in...';
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageDiv.style.color = 'green';
+                    messageDiv.textContent = data.message;
+                    
+                    // --- सबसे ज़रूरी: टोकन (Token) को सेव करें ---
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('userName', data.name);
+                    
+                    // --- रोल (Role) के हिसाब से सही पेज पर भेजें ---
+                    if (data.role === 'admin') {
+                        window.location.href = '/admin'; // एडमिन पैनल पर जाएँ
+                    } else if (data.role === 'delivery') {
+                        window.location.href = '/delivery'; // डिलीवरी पैनल पर जाएँ
+                    }
+                } else {
+                    messageDiv.style.color = 'red';
+                    messageDiv.textContent = `Error: ${data.message}`;
+                }
+            } catch (err) {
+                messageDiv.style.color = 'red';
+                messageDiv.textContent = 'Error connecting to server.';
+            }
+        });
+    </script>
+</body>
+</html>

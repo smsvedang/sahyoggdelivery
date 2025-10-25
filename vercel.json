@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/track", "destination": "/track.html" },
+    { "source": "/delivery", "destination": "/delivery.html" },
+    { "source": "/(.*)", "destination": "/server.js" }
+  ]
+}

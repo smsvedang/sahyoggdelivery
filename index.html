@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sahyog Medical - Home Delivery Portal</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .portal-container {
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+        .portal-container h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .portal-container p {
+            color: #555;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+        }
+        .portal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .portal-card {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 30px;
+            text-decoration: none;
+            color: #333;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .portal-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+        }
+        .portal-card h2 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .portal-card .description {
+            color: #666;
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="portal-container">
+        <h1>Sahyog Medical</h1>
+        <p>होम डिलीवरी सर्विस पोर्टल</p>
+
+        <div class="portal-grid">
+            
+            <a href="/track" class="portal-card">
+                <h2>Track Shipment</h2>
+                <p class="description">अपना ट्रैकिंग ID डालें और ऑर्डर का स्टेटस पता करें।</p>
+            </a>
+
+            <a href="/admin" class="portal-card">
+                <h2>Admin Login</h2>
+                <p class="description">नए शिपमेंट बुक करें और सभी डिलीवरी मैनेज करें।</p>
+            </a>
+
+            <a href="/delivery" class="portal-card">
+                <h2>Delivery Login</h2>
+                <p class="description">अपनी असाइन की गई डिलीवरी देखें और अपडेट करें।</p>
+            </a>
+
+        </div>
+    </div>
+
+</body>
+</html>
