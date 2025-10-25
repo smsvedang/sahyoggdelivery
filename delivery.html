@@ -38,6 +38,8 @@
         const scanResultDiv = document.getElementById('scan-result');
         const otpResultDiv = document.getElementById('otp-result');
         const pendingList = document.getElementById('pending-list');
+        
+        // *** RENDER FIX: 'http://localhost:3000' ko blank kar diya ***
         const SERVER_URL = '';
 
         // --- 1. Fetch Pending Deliveries ---
@@ -134,7 +136,4 @@
         });
     </script>
 </body>
-
 </html>
-
-
