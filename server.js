@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // --- 1. MongoDB से कनेक्ट करें ---
-// Render (aur Vercel) के Environment Variable से URI को सुरक्षित रूप से पढ़ें
+// Render के Environment Variable से URI को सुरक्षित रूप से पढ़ें
 const MONGO_URI = process.env.MONGO_URI;
 
 if (!MONGO_URI) {
