@@ -183,11 +183,9 @@
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault(); 
             
-            // Disable button and show loading
             submitBtn.disabled = true;
             submitBtn.textContent = "Booking...";
             
-            // Clear old results
             labelDiv.style.display = 'none';
             qrCodeDiv.innerHTML = '';
             resultDiv.innerHTML = '';
@@ -198,7 +196,8 @@
             const phone = document.getElementById('phone').value;
 
             try {
-                const response = await fetch('http://localhost:3000/book', {
+                // *** RENDER FIX: 'http://localhost:3000' ko hata diya ***
+                const response = await fetch('/book', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, address, phone })
@@ -207,37 +206,32 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Show text confirmation
                     resultDiv.className = 'success';
                     resultDiv.innerHTML = `<strong>${data.message}</strong><br>Tracking ID: ${data.trackingId}`;
                     
-                    // --- Generate the label ---
                     labelName.textContent = name;
-                    labelAddress.textContent = address; // Added address to label
+                    labelAddress.textContent = address;
                     labelTrackingId.textContent = data.trackingId;
-                    labelOtp.textContent = data.otp; // Added OTP to label
+                    labelOtp.textContent = data.otp;
                     
-                    // Generate QR code
                     new QRCode(qrCodeDiv, {
                         text: data.trackingId,
                         width: 140,
                         height: 140
                     });
 
-                    labelDiv.style.display = 'block'; // Show the label
+                    labelDiv.style.display = 'block';
                     
                 } else {
-                    // Show error
                     resultDiv.className = 'error';
                     resultDiv.innerHTML = `<strong>गड़बड़ी:</strong> ${data.message}`;
                 }
 
             } catch (error) {
                 resultDiv.className = 'error';
-                resultDiv.innerHTML = `<strong>सर्वर से कनेक्ट नहीं हो पा रहा है।</strong> (क्या 'node server.js' चल रहा है?)`;
+                resultDiv.innerHTML = `<strong>सर्वर से कनेक्ट नहीं हो पा रहा है।</strong>`;
             }
             
-            // Re-enable button
             submitBtn.disabled = false;
             submitBtn.textContent = "बुक करें";
         });
