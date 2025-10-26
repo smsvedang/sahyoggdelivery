@@ -350,20 +350,17 @@
                     const toggleButtonClass = user.isActive ? 'btn-warning' : 'btn-success';
 
                     row.innerHTML = `
-                        <td>${d.trackingId || 'N/A'}</td>
-                        <td>${d.customerName || 'N/A'}</td> {/* Corrected: Use d.customerName */}
-                        <td><strong>${d.currentStatus || 'N/A'}</strong></td>
-                        <td>${d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid'}</td>
-                        <td>${d.codPaymentStatus || 'N/A'}</td>
-                        {/* Corrected: Check if assignedTo exists before accessing name */}
-                        <td>${d.assignedTo ? (d.assignedTo.name || 'Error: Name Missing') : 'N/A'}</td>
-                        <td>${date}</td>
+                        <td>${user.name}</td>
+                        <td>${user.email}</td>
+                        <td>${user.phone || 'N/A'}</td>
+                        <td>${user.role}</td>
+                        <td><span class="${statusClass}">${user.isActive ? 'Active' : 'Inactive'}</span></td>
                         <td>
-                            <button class="btn-secondary btn-sm" onclick="reprintLabel('${d._id}')">Reprint</button>
-                            <button class="btn-warning btn-sm" onclick="cancelDelivery('${d._id}')" ${!isCancelable ? 'disabled' : ''}>Cancel</button>
-                            <button class="btn-danger btn-sm" onclick="deleteDelivery('${d._id}')">Delete</button>
+                            <button class="btn-secondary btn-sm" onclick="openEditUserModal('${user._id}')">Edit</button>
+                            <button class="${toggleButtonClass} btn-sm" onclick="toggleUserActive('${user._id}')">${toggleButtonText}</button>
                         </td>
                     `;
+
                     tbody.appendChild(row);
                 });
             } catch (err) { tbody.innerHTML = `<tr><td colspan="6">Error: ${err.message}</td></tr>`; }
@@ -460,90 +457,72 @@
              } catch (err) { alert(`Error: ${err.message}`); }
         }
 
-        // --- 7. Delivery Actions (Reprint, Cancel, Delete) ---
+       // --- 7. Delivery Actions (Reprint, Cancel, Delete) ---
         function reprintLabel(deliveryId) {
             const delivery = allDeliveriesData.find(d => d._id === deliveryId);
-            if (!delivery) return alert('Delivery data not found for reprint.');
+            if (!delivery) {
+                alert('Delivery data not found for reprint.');
+                return;
+            }
 
-            generateLabel(delivery.customerName, delivery.customerAddress, delivery.trackingId, delivery.paymentMethod);
-             // Scroll to the result area or show in a modal if preferred
-             document.getElementById('result-area').scrollIntoView({ behavior: 'smooth' });
-             setTimeout(printLabelInternal, 500); // Allow time for QR render
+            // Generate label content first
+            const generated = generateLabel(delivery.customerName, delivery.customerAddress, delivery.trackingId, delivery.paymentMethod);
+
+            // Only scroll and print if label generation was successful (returned true)
+            if (generated) {
+                 document.getElementById('result-area').scrollIntoView({ behavior: 'smooth' }); // Scroll to it
+                 setTimeout(printLabelInternal, 300); // Allow time for QR render before printing
+            } else {
+                 alert("Label generated, but QR code might have failed. Check console.");
+                 // Optionally still scroll
+                 document.getElementById('result-area').scrollIntoView({ behavior: 'smooth' });
+                 // Do not attempt to print if generation failed
+            }
         }
-
-        async function cancelDelivery(deliveryId) {
-            if (!confirm('Are you sure you want to cancel this delivery? Status will be set to Cancelled.')) return;
-            try {
-                const response = await fetch(`/admin/delivery/${deliveryId}/cancel`, { method: 'PATCH', headers });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message || 'Failed to cancel');
-                alert(data.message);
-                loadAllDeliveries();
-            } catch (err) { alert(`Error: ${err.message}`); }
-        }
-
-        async function deleteDelivery(deliveryId) {
-             if (!confirm('DANGER! Are you sure you want to permanently delete this delivery record? This cannot be undone.')) return;
-             try {
-                const response = await fetch(`/admin/delivery/${deliveryId}`, { method: 'DELETE', headers });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message || 'Failed to delete');
-                alert(data.message);
-                loadAllDeliveries();
-            } catch (err) { alert(`Error: ${err.message}`); }
-        }
-
 
         // --- 8. Label Generation & Action Buttons ---
-       // --- 8. Label Generation & Action Buttons ---
-        // Generates label HTML and QR code inside the #label div
         function generateLabel(name, address, trackingId, paymentMethod) {
             const labelDiv = document.getElementById('label');
             if (!labelDiv) {
                 console.error("Label container div (#label) not found!");
-                return; // Stop if the main div is missing
+                return false; // Indicate failure
             }
 
-             // 1. Set the basic HTML structure first
-             labelDiv.innerHTML = `
-                 <div id="label-header">
-                     <h3>Sahyog Medical</h3>
-                     <span style="font-weight:bold;">${paymentMethod || 'N/A'}</span>
-                 </div>
-                 <p><strong>TO:</strong> ${name || 'N/A'}</p>
-                 <p><strong>ADDRESS:</strong> ${address || 'N/A'}</p>
-                 <p><strong>TRACKING ID:</strong> ${trackingId || 'N/A'}</p>
-                 <div style="text-align: center;">
-                     <div id="qrcode-tracking-placeholder"></div> <small>Scan to Track/Update</small>
-                 </div>
-             `;
+            // Set basic HTML
+            labelDiv.innerHTML = `
+                <div id="label-header">
+                    <h3>Sahyog Medical</h3>
+                    <span style="font-weight:bold;">${paymentMethod || 'N/A'}</span>
+                </div>
+                <p><strong>TO:</strong> ${name || 'N/A'}</p>
+                <p><strong>ADDRESS:</strong> ${address || 'N/A'}</p>
+                <p><strong>TRACKING ID:</strong> ${trackingId || 'N/A'}</p>
+                <div style="text-align: center;">
+                    <div id="qrcode-tracking-placeholder-label"></div> <small>Scan to Track/Update</small>
+                </div>
+            `;
+            labelDiv.style.display = 'block'; // Show text content immediately
 
-             // 2. Find the placeholder *after* setting innerHTML
-             const qrElement = labelDiv.querySelector('#qrcode-tracking-placeholder');
-
-             // 3. Generate QR Code *only if* the placeholder and trackingId exist
-             if (qrElement && trackingId) {
-                 // Clear previous QR code if any (important for reprint)
-                 qrElement.innerHTML = '';
-                 try {
-                     // Generate the QR Code directly into the placeholder
-                     new QRCode(qrElement, {
-                         text: trackingId,
-                         width: 128,
-                         height: 128,
-                         correctLevel: QRCode.CorrectLevel.H // Higher correction level
-                     });
-                     labelDiv.style.display = 'block'; // Show label *after* successful generation
-                 } catch (qrError) {
-                     console.error("Failed to generate QR Code:", qrError);
-                     qrElement.innerHTML = '<p style="color:red; font-size: small;">QR Error</p>'; // Show error in placeholder
-                     labelDiv.style.display = 'block'; // Show label even if QR fails
-                 }
-             } else {
-                  console.error("QR Code placeholder or Tracking ID missing for label generation.");
-                  // Still show the label with text content if QR fails fundamentally
-                  labelDiv.style.display = 'block';
-             }
+            // Generate QR Code *only if* placeholder and trackingId exist
+            const qrElement = labelDiv.querySelector('#qrcode-tracking-placeholder-label'); // Use unique ID
+            if (qrElement && trackingId) {
+                qrElement.innerHTML = ''; // Clear previous QR
+                try {
+                    new QRCode(qrElement, {
+                        text: trackingId,
+                        width: 128,
+                        height: 128,
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    return true; // Indicate success
+                } catch (qrError) {
+                    console.error("Failed to generate QR Code:", qrError);
+                    qrElement.innerHTML = '<p style="color:red; font-size: small;">QR Error</p>';
+                }
+            } else {
+                console.error("QR Code placeholder or Tracking ID missing for label generation.");
+            }
+            return false; // Indicate failure if QR didn't generate
         }
 
         function setupActionButtons(trackingId, otp, phone) {
