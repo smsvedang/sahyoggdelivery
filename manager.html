@@ -136,7 +136,23 @@
 
         // --- 2. Tab Logic ---
         function openTab(event, tabName) {
-            // ... (same tab logic as admin.html) ...
+            let i, tabcontent, tablinks;
+            // Get all elements with class="tab-content" and hide them
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                if(tabcontent[i]) tabcontent[i].style.display = "none";
+            }
+            // Get all elements with class="tab-link" and remove the class "active"
+            tablinks = document.getElementsByClassName("tab-link");
+            for (i = 0; i < tablinks.length; i++) {
+                if(tablinks[i]) tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            // Show the current tab, and add an "active" class to the button that opened the tab
+            const currentTab = document.getElementById(tabName);
+            if(currentTab) currentTab.style.display = "block";
+            if(event && event.currentTarget) event.currentTarget.className += " active";
+
+            // Refresh data when tabs are opened
             if (tabName === 'tab-pickups') loadPendingPickups();
             if (tabName === 'tab-boys') loadMyBoys();
         }
@@ -187,47 +203,51 @@
          // --- 4. Load My Delivery Boys (for Manage Tab & Dropdown) ---
         async function loadMyBoys() {
             const tbody = document.getElementById('boys-body');
+            // Reset global array
+            myDeliveryBoys = [];
             if (tbody) tbody.innerHTML = '<tr><td colspan="5">Loading delivery boys...</td></tr>';
+
             try {
                 const response = await fetch('/manager/my-boys', { headers });
                 if (response.status === 401) { window.location.href = '/login'; return; }
-                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                 const users = await response.json();
-                myDeliveryBoys = users; // Store for dropdowns
 
-                if (tbody) { // Update table only if in Manage tab
-                    tbody.innerHTML = '';
+                // Store fetched boys
+                myDeliveryBoys = users;
+
+                if (tbody) { // Update table only if the element exists
+                    tbody.innerHTML = ''; // Clear loading message
                     if(users.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No delivery boys found. Add one below.</td></tr>';
+                    } else {
+                        users.forEach(user => {
+                            const row = document.createElement('tr');
+                            const statusClass = user.isActive ? 'status-active' : 'status-inactive';
+                            // Actions for manager might be limited, add if needed later
+                            row.innerHTML = `
+                                <td>${user.name || 'N/A'}</td> {/* Ensure name exists */}
+                                <td>${user.email || 'N/A'}</td>
+                                <td>${user.phone || 'N/A'}</td>
+                                <td><span class="${statusClass}">${user.isActive ? 'Active' : 'Inactive'}</span></td>
+                                <td>{/* Actions like Edit/Deactivate could be added here if needed */}</td>
+                            `;
+                            tbody.appendChild(row);
+                        });
                     }
-                    users.forEach(user => {
-                        const row = document.createElement('tr');
-                        const statusClass = user.isActive ? 'status-active' : 'status-inactive';
-                        const toggleButtonText = user.isActive ? 'Deactivate' : 'Activate';
-                        // Managers generally shouldn't activate/deactivate, only admin
-                        // Add edit/password reset later if needed
-                        row.innerHTML = `
-                            <td>${user.name}</td>
-                            <td>${user.email}</td>
-                            <td>${user.phone || 'N/A'}</td>
-                            <td><span class="${statusClass}">${user.isActive ? 'Active' : 'Inactive'}</span></td>
-                            <td> TBD </td> {/* Placeholder for future actions */}
-                        `;
-                        tbody.appendChild(row);
-                    });
                 }
-                 // After loading boys, refresh the pickups tab if it's active, to update dropdowns
-                 const activeTab = document.querySelector('.tab-content.active');
-                 if(activeTab && activeTab.id === 'tab-pickups') {
-                      loadPendingPickups();
-                 }
+                 // Crucial: After loading boys, refresh the pickups tab content
+                 // This ensures the assignment dropdowns are populated/updated
+                 loadPendingPickups(); // Refresh pickups to update dropdowns
 
             } catch (err) {
                  console.error("Error loading my boys:", err);
                  if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="color: red; text-align: center;">Error loading boys: ${err.message}</td></tr>`;
+                 // Attempt to refresh pickups even if boys fail, maybe some pickups exist
+                 loadPendingPickups();
             }
         }
-
+        
         // --- 5. Handle Create Delivery Boy ---
         async function handleCreateBoySubmit(e) {
              e.preventDefault();
