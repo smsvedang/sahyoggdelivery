@@ -491,29 +491,54 @@
 
 
         // --- 8. Label Generation & Action Buttons ---
+        // --- 8. Label Generation & Action Buttons ---
+        // Generates label HTML and QR code inside the #label div
         function generateLabel(name, address, trackingId, paymentMethod) {
             const labelDiv = document.getElementById('label');
-             const qrTrackingDiv = document.getElementById('qrcode-tracking');
-             
-             // Clear previous QR
-             qrTrackingDiv.innerHTML = '';
+            // --- (Safety Check) ---
+            if (!labelDiv) {
+                console.error("Label container div (#label) not found!");
+                return; // Stop if the main div is missing
+            }
+            // ---------------------
 
              labelDiv.innerHTML = `
                  <div id="label-header">
                      <h3>Sahyog Medical</h3>
-                     <span style="font-weight:bold;">${paymentMethod}</span>
+                     <span style="font-weight:bold;">${paymentMethod || 'N/A'}</span>
                  </div>
-                 <p><strong>TO:</strong> ${name}</p>
-                 <p><strong>ADDRESS:</strong> ${address}</p>
-                 <p><strong>TRACKING ID:</strong> ${trackingId}</p>
+                 <p><strong>TO:</strong> ${name || 'N/A'}</p>
+                 <p><strong>ADDRESS:</strong> ${address || 'N/A'}</p>
+                 <p><strong>TRACKING ID:</strong> ${trackingId || 'N/A'}</p>
                  <div style="text-align: center;">
                      <div id="qrcode-tracking-placeholder"></div> <small>Scan to Track/Update</small>
                  </div>
              `;
-             
-             // Generate QR in the placeholder
-             new QRCode(labelDiv.querySelector('#qrcode-tracking-placeholder'), { text: trackingId, width: 128, height: 128 });
-             labelDiv.style.display = 'block';
+
+             // --- (Improved QR Generation) ---
+             // Find the placeholder *after* setting innerHTML
+             const qrElement = labelDiv.querySelector('#qrcode-tracking-placeholder');
+             if (qrElement && trackingId) {
+                 // Clear previous QR code if any (important for reprint)
+                 qrElement.innerHTML = '';
+                 try {
+                     new QRCode(qrElement, {
+                         text: trackingId,
+                         width: 128,
+                         height: 128,
+                         correctLevel: QRCode.CorrectLevel.H // Higher correction level might help print scanning
+                     });
+                     labelDiv.style.display = 'block'; // Make label visible only after success
+                 } catch (qrError) {
+                     console.error("Failed to generate QR Code:", qrError);
+                     labelDiv.innerHTML += '<p style="color:red;">Error generating QR code.</p>';
+                     labelDiv.style.display = 'block';
+                 }
+             } else {
+                  console.error("QR Code placeholder or Tracking ID missing.");
+                  if(labelDiv) labelDiv.style.display = 'block'; // Show label even if QR fails
+             }
+             // --- ------------------------- ---
         }
 
         function setupActionButtons(trackingId, otp, phone) {

@@ -114,46 +114,88 @@
         const manualResultDiv = document.getElementById('manual-result');
         const completeResultDiv = document.getElementById('complete-result');
         const pendingList = document.getElementById('pending-list');
+        const html5QrCode = new Html5Qrcode("reader"); // Define scanner instance globally in script
         let currentDeliveries = [];
 
         // --- 1. Security Guard & Initial Load ---
-        window.onload = () => {
+        // Use DOMContentLoaded to ensure all HTML is loaded before running script
+        document.addEventListener('DOMContentLoaded', () => {
             if (!token || role !== 'delivery') {
                 localStorage.clear();
                 window.location.href = '/login';
                 return;
             }
-            document.getElementById('delivery-name').textContent = localStorage.getItem('userName');
-             document.getElementById('copyright-year').textContent = new Date().getFullYear();
+            // Check if elements exist before trying to access them
+            const deliveryNameEl = document.getElementById('delivery-name');
+            const copyrightYearEl = document.getElementById('copyright-year');
+            if(deliveryNameEl) deliveryNameEl.textContent = localStorage.getItem('userName');
+            if(copyrightYearEl) copyrightYearEl.textContent = new Date().getFullYear();
+
+            // Setup button listeners after DOM is loaded
+            setupEventListeners();
+
+            // Initial data load
             loadAssignedDeliveries();
             startScanner();
-        };
+        });
 
-        // --- 2. Load Assigned Deliveries (Updated CSS Class) ---
-        document.getElementById('fetch-pending').onclick = loadAssignedDeliveries;
+        // --- Function to setup event listeners ---
+        function setupEventListeners() {
+            const fetchPendingBtn = document.getElementById('fetch-pending');
+            const completeBtn = document.getElementById('complete-btn');
+            const enableNotificationsBtn = document.getElementById('enable-notifications');
+            const logoutBtn = document.getElementById('logout-btn');
+            const manualUpdateBtn = document.getElementById('manual-update-btn');
+            const closeQrModalBtn = document.getElementById('close-qr-modal');
+
+            if(fetchPendingBtn) fetchPendingBtn.onclick = loadAssignedDeliveries;
+            if(completeBtn) completeBtn.onclick = completeDeliveryHandler; // Changed name to avoid conflict
+            if(enableNotificationsBtn) enableNotificationsBtn.onclick = enableNotificationsHandler; // Changed name
+            if(logoutBtn) logoutBtn.onclick = logoutHandler; // Changed name
+            if(manualUpdateBtn) manualUpdateBtn.onclick = () => {
+                 const trackingId = document.getElementById('manual-tracking-id').value;
+                 if (!trackingId) {
+                     manualResultDiv.textContent = 'Please enter Tracking ID.';
+                     manualResultDiv.className = 'message error';
+                     manualResultDiv.style.display = 'block';
+                     return;
+                 }
+                 manualResultDiv.style.display = 'block';
+                 updateDeliveryStatus(trackingId, manualResultDiv);
+             };
+            if(closeQrModalBtn) closeQrModalBtn.onclick = () => {
+                const qrModal = document.getElementById('qr-modal');
+                if(qrModal) qrModal.style.display = 'none';
+            };
+        }
+
+
+        // --- 2. Load Assigned Deliveries ---
         async function loadAssignedDeliveries() {
+            if(!pendingList) return; // Guard clause
             pendingList.innerHTML = '<li>Loading...</li>';
             try {
                 const response = await fetch('/delivery/my-deliveries', { headers });
-                if (response.status === 401) window.location.href = '/login';
+                if (response.status === 401) { window.location.href = '/login'; return; } // Redirect immediately
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
                 const deliveries = await response.json();
                 currentDeliveries = deliveries;
                 pendingList.innerHTML = '';
                 if (deliveries.length === 0) {
-                    pendingList.innerHTML = '<li>No pending deliveries.</li>'; return;
+                    pendingList.innerHTML = '<li>No pending deliveries assigned to you.</li>'; return;
                 }
                 deliveries.forEach(d => {
                     const li = document.createElement('li');
-                    // Add class based on status for styling
                     if(d.currentStatus === 'Picked Up') li.classList.add('status-picked-up');
                     if(d.currentStatus === 'Out for Delivery') li.classList.add('status-out-for-delivery');
 
                     let paymentInfo = `<strong>Payment: ${d.paymentMethod}</strong>`;
                     if(d.paymentMethod === 'COD') {
                         paymentInfo += ` (₹${d.billAmount})`;
-                         // Show QR button only if Out for Delivery
                         if (d.currentStatus === 'Out for Delivery') {
-                            paymentInfo += ` <button onclick="showPaymentQr('${d.billAmount}', '${d.trackingId}')" class="btn-secondary" style="font-size: 12px; padding: 3px 6px;">Show Pay QR</button>`;
+                            // Ensure onclick uses quotes correctly for string arguments
+                            paymentInfo += ` <button onclick="showPaymentQr('${d.billAmount || 0}', '${d.trackingId || ''}')" class="btn-secondary" style="font-size: 12px; padding: 3px 6px;">Show Pay QR</button>`;
                         }
                     }
                     li.innerHTML = `
@@ -164,45 +206,68 @@
                     `;
                     pendingList.appendChild(li);
                 });
-            } catch (err) { pendingList.innerHTML = `<li>Error: ${err.message}</li>`; }
+            } catch (err) {
+                console.error("Error loading deliveries:", err);
+                pendingList.innerHTML = `<li>Error loading deliveries: ${err.message}</li>`;
+            }
         }
 
-        // --- 3. QR Scanner Logic (Updated API call and flow) ---
-        const html5QrCode = new Html5Qrcode("reader");
+        // --- 3. QR Code Scanner Logic ---
         function startScanner() {
+            // Check if element exists before starting
+            const readerElement = document.getElementById("reader");
+            if (!readerElement || !html5QrCode) return;
+
+            // Stop previous scan if running, ignore errors
+            html5QrCode.stop().catch(()=>{});
+
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
-                .catch(err => console.log("Scanner start ignored:", err)); // Ignore errors if already started etc.
+                .catch(err => {
+                    console.log("Scanner start error (maybe permissions?):", err);
+                    if (scanResultDiv) {
+                        scanResultDiv.textContent = "Could not start scanner. Check camera permissions.";
+                        scanResultDiv.className = 'message error';
+                        scanResultDiv.style.display = 'block';
+                    }
+                });
         }
-        const qrCodeSuccessCallback = async (decodedText, decodedResult) => {
-            html5QrCode.stop();
-            scanResultDiv.style.display = 'block';
-            scanResultDiv.className = 'message';
-            scanResultDiv.innerHTML = `Scanned: ${decodedText}. Processing...`;
 
-            // Check if this scan is for completion or status update
+        const qrCodeSuccessCallback = async (decodedText, decodedResult) => {
+             if (!html5QrCode) return;
+             html5QrCode.stop().catch(()=>{}); // Stop scanning immediately
+
+             if(scanResultDiv) {
+                scanResultDiv.style.display = 'block';
+                scanResultDiv.className = 'message';
+                scanResultDiv.innerHTML = `Scanned: ${decodedText}. Processing...`;
+             }
+
             const delivery = currentDeliveries.find(d => d.trackingId === decodedText);
 
             if (delivery && delivery.currentStatus === 'Out for Delivery') {
-                // If Out for Delivery, this scan is likely for completion
-                scanResultDiv.innerHTML = `Scanned ${decodedText}. Please enter Customer OTP below to complete.`;
-                 scanResultDiv.className = 'message success';
-                 document.getElementById('complete-tracking-id').value = decodedText; // Auto-fill tracking ID
-                 checkIfCod(decodedText); // Check if COD options needed
-                 document.getElementById('complete-otp-code').focus(); // Focus OTP field
+                if(scanResultDiv) {
+                    scanResultDiv.innerHTML = `Scanned ${decodedText}. Please enter Customer OTP below to complete.`;
+                    scanResultDiv.className = 'message success';
+                }
+                const completeTrackingIdEl = document.getElementById('complete-tracking-id');
+                const completeOtpCodeEl = document.getElementById('complete-otp-code');
+                if(completeTrackingIdEl) completeTrackingIdEl.value = decodedText;
+                checkIfCod(decodedText);
+                if(completeOtpCodeEl) completeOtpCodeEl.focus();
             } else {
-                 // Otherwise, assume it's for Picked Up / Out for Delivery status update
                  updateDeliveryStatus(decodedText, scanResultDiv);
             }
-             setTimeout(startScanner, 4000); // Restart scanner after a delay
+             // Restart scanner after a delay using setTimeout
+             setTimeout(startScanner, 4000);
         };
 
-        // --- 4. Function to Update Status (Used by Scan and Manual) ---
+        // --- 4. Function to Update Status ---
         async function updateDeliveryStatus(trackingId, resultDivElement) {
+            if(!resultDivElement) return; // Guard clause
             resultDivElement.innerHTML = `Updating status for ${trackingId}...`;
             resultDivElement.className = 'message';
              try {
-                // --- (Updated) Call new API endpoint ---
                 const response = await fetch('/delivery/update-status', {
                     method: 'POST', headers: headers, body: JSON.stringify({ trackingId: trackingId })
                 });
@@ -210,12 +275,13 @@
                 if (response.ok) {
                     resultDivElement.className = 'message success';
                     resultDivElement.innerHTML = `Success! ${data.trackingId} is now ${data.status}.`;
-                    loadAssignedDeliveries();
+                    loadAssignedDeliveries(); // Refresh list
                 } else {
                     resultDivElement.className = 'message error';
-                    resultDivElement.innerHTML = `Error: ${data.message}`;
+                    resultDivElement.innerHTML = `Error: ${data.message || `Server responded with ${response.status}`}`;
                 }
             } catch (err) {
+                console.error("Update status error:", err);
                 resultDivElement.className = 'message error';
                 resultDivElement.innerHTML = `Error connecting to server.`;
             }
@@ -224,40 +290,85 @@
         // --- 5. Manual Entry Fallback ---
          function toggleManualEntry() {
              const manualDiv = document.getElementById('manual-entry');
-             manualDiv.style.display = (manualDiv.style.display === 'none' || manualDiv.style.display === '') ? 'block' : 'none';
-         }
-         document.getElementById('manual-update-btn').onclick = () => {
-             const trackingId = document.getElementById('manual-tracking-id').value;
-             if (!trackingId) {
-                 manualResultDiv.textContent = 'Please enter Tracking ID.';
-                 manualResultDiv.className = 'message error';
-                 manualResultDiv.style.display = 'block';
-                 return;
+             if(manualDiv) {
+                manualDiv.style.display = (manualDiv.style.display === 'none' || manualDiv.style.display === '') ? 'block' : 'none';
              }
-             manualResultDiv.style.display = 'block';
-             updateDeliveryStatus(trackingId, manualResultDiv); // Use the same update function
-         };
+         }
 
         // --- 6. Payment QR Modal ---
-        function showPaymentQr(amount, trackingId) { /* ... (same as before) ... */ }
-        document.getElementById('close-qr-modal').onclick = () => { /* ... (same as before) ... */ };
+        function showPaymentQr(amount, trackingId) {
+            const qrModal = document.getElementById('qr-modal');
+            const qrAmountEl = document.getElementById('qr-amount');
+            const qrCodeEl = document.getElementById('payment-qrcode');
+            if(!qrModal || !qrAmountEl || !qrCodeEl) return; // Guard clause
+
+            const upiID = 'mab.037325040420024@axisbank';
+            const merchantName = 'Sahyog Medical'.replace(/ /g, '%20');
+            const upiQrString = `upi://pay?pa=${upiID}&pn=${merchantName}&am=${amount}&cu=INR&tn=Order-${trackingId}`;
+
+            qrAmountEl.textContent = amount;
+            qrCodeEl.innerHTML = ''; // Clear previous QR
+            try {
+                new QRCode(qrCodeEl, { text: upiQrString, width: 256, height: 256 });
+                qrModal.style.display = 'flex';
+            } catch(e) {
+                console.error("Error generating payment QR:", e);
+                alert("Could not generate payment QR code.");
+            }
+        }
 
         // --- 7. Check if COD for Completion ---
-        async function checkIfCod(trackingId) { /* ... (same as before) ... */ }
+        async function checkIfCod(trackingId) {
+            const codOptions = document.getElementById('cod-payment-options');
+            if (!codOptions) return; // Guard clause
+            codOptions.style.display = 'none'; // Hide by default
+
+            if (!trackingId) return;
+
+            try {
+                // Use the main delivery data if already loaded
+                const delivery = currentDeliveries.find(d => d.trackingId === trackingId);
+                if (delivery) {
+                    if (delivery.paymentMethod === 'COD' && delivery.currentStatus === 'Out for Delivery') {
+                         codOptions.style.display = 'block';
+                     }
+                } else {
+                    // Fallback to fetch if not in current list (less efficient)
+                    const response = await fetch(`/track/${trackingId}`);
+                     if (!response.ok) return; // Don't show options if track fails
+                    const data = await response.json();
+                    if (data.paymentMethod === 'COD' && data.currentStatus === 'Out for Delivery') {
+                         codOptions.style.display = 'block';
+                     }
+                }
+            } catch (err) {
+                 console.error("Error checking COD status:", err);
+                 codOptions.style.display = 'none';
+            }
+        }
 
         // --- 8. Complete Delivery (OTP) Logic ---
-        document.getElementById('complete-btn').onclick = async () => {
-             const trackingId = document.getElementById('complete-tracking-id').value;
-             const otp = document.getElementById('complete-otp-code').value;
+        async function completeDeliveryHandler() { // Renamed function
+             const trackingIdEl = document.getElementById('complete-tracking-id');
+             const otpEl = document.getElementById('complete-otp-code');
+             const codOptionsDiv = document.getElementById('cod-payment-options');
+             const payCashEl = document.getElementById('pay-cash');
+             const payOnlineEl = document.getElementById('pay-online');
+
+             // Guard clauses for elements
+             if (!trackingIdEl || !otpEl || !codOptionsDiv || !completeResultDiv) return;
+
+             const trackingId = trackingIdEl.value;
+             const otp = otpEl.value;
+
              completeResultDiv.style.display = 'block';
              completeResultDiv.className = 'message';
              completeResultDiv.innerHTML = 'Verifying OTP...';
 
             let paymentReceivedMethod = null;
-            const codOptionsDiv = document.getElementById('cod-payment-options');
              if (codOptionsDiv.style.display === 'block') {
-                 if (document.getElementById('pay-cash').checked) paymentReceivedMethod = 'cash';
-                 else if (document.getElementById('pay-online').checked) paymentReceivedMethod = 'online';
+                 if (payCashEl && payCashEl.checked) paymentReceivedMethod = 'cash';
+                 else if (payOnlineEl && payOnlineEl.checked) paymentReceivedMethod = 'online';
                  else {
                      completeResultDiv.className = 'message error';
                      completeResultDiv.innerHTML = 'Please select payment method (Cash or Online).';
@@ -282,26 +393,58 @@
                     completeResultDiv.innerHTML = `Success! ${data.trackingId} is ${data.status}.`;
                     loadAssignedDeliveries();
                     // Clear fields
-                    document.getElementById('complete-tracking-id').value = '';
-                    document.getElementById('complete-otp-code').value = '';
+                    trackingIdEl.value = '';
+                    otpEl.value = '';
                     codOptionsDiv.style.display = 'none';
-                    if(document.getElementById('pay-cash')) document.getElementById('pay-cash').checked = false;
-                    if(document.getElementById('pay-online')) document.getElementById('pay-online').checked = false;
+                    if(payCashEl) payCashEl.checked = false;
+                    if(payOnlineEl) payOnlineEl.checked = false;
                  } else {
                     completeResultDiv.className = 'message error';
-                    completeResultDiv.innerHTML = `Error: ${data.message}`;
+                    completeResultDiv.innerHTML = `Error: ${data.message || `Server responded with ${response.status}`}`;
                  }
              } catch (err) {
+                console.error("Complete delivery error:", err);
                 completeResultDiv.className = 'message error';
                 completeResultDiv.innerHTML = 'Error connecting to server.';
              }
         };
 
         // --- 9. Push Notification ---
-        document.getElementById('enable-notifications').onclick = async () => { /* ... (same as before) ... */ };
+        async function enableNotificationsHandler() { // Renamed function
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const reg = await navigator.serviceWorker.register('/service-worker.js');
+                    const sub = await reg.pushManager.getSubscription();
+                    if (sub) {
+                        alert('You are already subscribed to notifications.');
+                    } else {
+                        const publicKeyRes = await fetch('/vapid-public-key');
+                        if (!publicKeyRes.ok) throw new Error("Could not fetch VAPID key");
+                        const publicKey = await publicKeyRes.text();
+
+                        const newSub = await reg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: publicKey // Use the fetched key
+                        });
+
+                        const subscribeResponse = await fetch('/subscribe', { method: 'POST', headers: headers, body: JSON.stringify(newSub) });
+                         if (!subscribeResponse.ok) throw new Error("Failed to save subscription on server");
+                        alert('Notifications enabled successfully!');
+                    }
+                } catch (err) {
+                     console.error("Notification enabling error:", err);
+                     alert('Failed to enable notifications. See console for details.');
+                }
+            } else {
+                alert('Push notifications are not supported on this browser.');
+            }
+        };
 
         // --- 10. Logout ---
-        document.getElementById('logout-btn').onclick = () => { /* ... (same as before) ... */ };
+        function logoutHandler() { // Renamed function
+            localStorage.clear();
+            window.location.href = '/login';
+        };
     </script>
 </body>
 </html>
