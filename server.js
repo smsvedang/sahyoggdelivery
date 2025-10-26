@@ -89,16 +89,28 @@ const Delivery = mongoose.model('Delivery', deliverySchema);
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const user = await User.findOne({ email: email.toLowerCase() });
-        if (!user) return res.status(404).json({ message: 'User not found' });
-        // --- (New) Check if user is active ---
-        if (!user.isActive) return res.status(403).json({ message: 'User account is deactivated' });
-        // ------------------------------------
+        const user = await User.findOne({ email: email.toLowerCase() }); // Case-insensitive
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        // Check if user is active
+        if (!user.isActive) {
+            return res.status(403).json({ message: 'User account is deactivated' });
+        }
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ message: 'Invalid password' });
-        const token = jwt.sign({ userId: user._id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '3d' });
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Invalid password' });
+        }
+        const token = jwt.sign(
+            { userId: user._id, role: user.role, name: user.name },
+            JWT_SECRET,
+            { expiresIn: '3d' }
+        );
         res.json({ message: 'Login successful!', token, name: user.name, role: user.role });
-    } catch (error) { res.status(500).json({ message: 'Server error' }); }
+    } catch (error) {
+        console.error("Login Error:", error); // Log the actual error
+        res.status(500).json({ message: 'Server error during login' });
+    }
 });
 // 5.2. Auth Middleware (No changes)
 const auth = (roles = []) => { /* ... (same as before) ... */ };
