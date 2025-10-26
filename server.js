@@ -85,6 +85,7 @@ const Delivery = mongoose.model('Delivery', deliverySchema);
 
 
 // --- 5. Auth APIs (Updated) ---
+
 // 5.1. Login (Updated: Check isActive)
 app.post('/login', async (req, res) => {
     try {
@@ -108,17 +109,36 @@ app.post('/login', async (req, res) => {
         );
         res.json({ message: 'Login successful!', token, name: user.name, role: user.role });
     } catch (error) {
-        console.error("Login Error:", error); // Log the actual error
-        res.status(500).json({ message: 'Server error during login' });
+         console.error("Login Error:", error); // Log the actual error
+         res.status(500).json({ message: 'Server error during login' });
     }
 });
+
 // 5.2. Auth Middleware (No changes)
-const auth = (roles = []) => { /* ... (same as before) ... */ };
+const auth = (roles = []) => {
+    return (req, res, next) => {
+        try {
+            const token = req.headers.authorization.split(' ')[1]; // "Bearer TOKEN"
+            const decoded = jwt.verify(token, JWT_SECRET);
+            req.user = decoded; // { userId, role, name }
+
+            if (roles.length > 0 && !roles.includes(decoded.role)) {
+                return res.status(403).json({ message: 'Forbidden: Insufficient role' });
+            }
+            next();
+        } catch (error) {
+            res.status(401).json({ message: 'Authentication failed: Invalid token' });
+        }
+    };
+};
 
 
 // --- 6. HTML Page Routes (No changes) ---
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-// ... (rest are same) ...
+app.get('/track', (req, res) => res.sendFile(path.join(__dirname, 'track.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'login.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
+app.get('/delivery', (req, res) => res.sendFile(path.join(__dirname, 'delivery.html')));
 app.get('/service-worker.js', (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
     res.sendFile(path.join(__dirname, 'service-worker.js'));
@@ -144,15 +164,23 @@ app.post('/book', auth(['admin']), async (req, res) => {
             billAmount: billAmount,
             assignedTo: assignedTo || null,
             statusUpdates: [{ status: 'Booked' }],
-            // --- (Updated) Set status based on payment method ---
             codPaymentStatus: (paymentMethod === 'Prepaid') ? 'Not Applicable' : 'Pending'
         });
         await newDelivery.save();
-        
-        if (assignedTo) { /* ... (push notification logic same) ... */ }
-        
+
+        if (assignedTo) {
+            const user = await User.findById(assignedTo);
+            if (user && user.pushSubscription) {
+                const payload = JSON.stringify({ title: 'New Delivery Assigned!', body: `Order ${trackingId} for ${name}` });
+                webpush.sendNotification(user.pushSubscription, payload).catch(err => console.error("Push error", err));
+            }
+        }
+
         res.json({ message: 'कूरियर बुक हो गया!', trackingId: trackingId, otp: otp });
-    } catch (error) { /* ... (error handling same) ... */ }
+    } catch (error) {
+         console.error("Booking Error:", error);
+         res.status(500).json({ message: 'Booking failed', error: error.message });
+    }
 });
 
 // 7.2. Get All Deliveries (Updated: Return more fields)
@@ -162,7 +190,10 @@ app.get('/admin/deliveries', auth(['admin']), async (req, res) => {
             .populate('assignedTo', 'name email isActive') // Get more user details
             .sort({ createdAt: -1 });
         res.json(deliveries);
-    } catch (error) { res.status(500).json({ message: 'Error fetching deliveries' }); }
+    } catch (error) {
+         console.error("Fetch Deliveries Error:", error);
+         res.status(500).json({ message: 'Error fetching deliveries' });
+    }
 });
 
 // 7.3. Get All Users (Admin + Delivery Boys) (New)
@@ -170,7 +201,10 @@ app.get('/admin/users', auth(['admin']), async (req, res) => {
     try {
         const users = await User.find({}, '-password').sort({ role: 1, name: 1 }); // Exclude password
         res.json(users);
-    } catch (error) { res.status(500).json({ message: 'Error fetching users' }); }
+    } catch (error) {
+         console.error("Fetch Users Error:", error);
+         res.status(500).json({ message: 'Error fetching users' });
+    }
 });
 
 // 7.4. Create User (Admin/Delivery Boy) (Updated)
@@ -187,7 +221,10 @@ app.post('/admin/create-user', auth(['admin']), async (req, res) => {
         const newUser = new User({ name, email: email.toLowerCase(), password: hashedPassword, phone, role });
         await newUser.save();
         res.status(201).json({ message: `${role} user created!`, user: { name: newUser.name, email: newUser.email, role: newUser.role } });
-    } catch (error) { res.status(500).json({ message: 'Server error', error }); }
+    } catch (error) {
+         console.error("Create User Error:", error);
+         res.status(500).json({ message: 'Server error', error: error.message });
+    }
 });
 
 // 7.5. Update User Details (New)
@@ -200,19 +237,16 @@ app.put('/admin/user/:userId', auth(['admin']), async (req, res) => {
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        // Prevent changing own role if only one admin left (optional safeguard)
-        // if (user.role === 'admin' && req.user.userId === userId && role !== 'admin') {
-        //     const adminCount = await User.countDocuments({ role: 'admin', isActive: true });
-        //     if (adminCount <= 1) return res.status(400).json({ message: 'Cannot change role of the last active admin.' });
-        // }
-
         user.name = name;
         user.email = email.toLowerCase();
         user.phone = phone;
         user.role = role;
         await user.save();
         res.json({ message: 'User updated successfully' });
-    } catch (error) { res.status(500).json({ message: 'Server error', error }); }
+    } catch (error) {
+         console.error("Update User Error:", error);
+         res.status(500).json({ message: 'Server error', error: error.message });
+    }
 });
 
 // 7.6. Update User Password (New)
@@ -225,7 +259,10 @@ app.patch('/admin/user/:userId/password', auth(['admin']), async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         await User.findByIdAndUpdate(userId, { password: hashedPassword });
         res.json({ message: 'Password updated successfully' });
-    } catch (error) { res.status(500).json({ message: 'Server error', error }); }
+    } catch (error) {
+         console.error("Update Password Error:", error);
+         res.status(500).json({ message: 'Server error', error: error.message });
+    }
 });
 
 // 7.7. Toggle User Active Status (New)
@@ -235,16 +272,13 @@ app.patch('/admin/user/:userId/toggle-active', auth(['admin']), async (req, res)
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        // Prevent deactivating self if only one admin left (optional safeguard)
-        // if (user.role === 'admin' && req.user.userId === userId && user.isActive) {
-        //     const adminCount = await User.countDocuments({ role: 'admin', isActive: true });
-        //     if (adminCount <= 1) return res.status(400).json({ message: 'Cannot deactivate the last active admin.' });
-        // }
-
         user.isActive = !user.isActive;
         await user.save();
         res.json({ message: `User ${user.isActive ? 'activated' : 'deactivated'}` });
-    } catch (error) { res.status(500).json({ message: 'Server error', error }); }
+    } catch (error) {
+         console.error("Toggle Active Error:", error);
+         res.status(500).json({ message: 'Server error', error: error.message });
+    }
 });
 
 
@@ -255,16 +289,18 @@ app.patch('/admin/delivery/:deliveryId/cancel', auth(['admin']), async (req, res
         const delivery = await Delivery.findById(deliveryId);
         if (!delivery) return res.status(404).json({ message: 'Delivery not found' });
 
-        // Add 'Cancelled' status only if not already delivered or cancelled
         if (!['Delivered', 'Cancelled'].includes(delivery.currentStatus)) {
             delivery.statusUpdates.push({ status: 'Cancelled' });
-            delivery.codPaymentStatus = 'Not Applicable'; // Or keep as is? Decide.
+            delivery.codPaymentStatus = 'Not Applicable';
             await delivery.save();
             res.json({ message: 'Delivery cancelled' });
         } else {
             res.status(400).json({ message: 'Delivery already completed or cancelled' });
         }
-    } catch (error) { res.status(500).json({ message: 'Server error', error }); }
+    } catch (error) {
+         console.error("Cancel Delivery Error:", error);
+         res.status(500).json({ message: 'Server error', error: error.message });
+    }
 });
 
 // 7.9. Delete Delivery (New)
@@ -274,16 +310,30 @@ app.delete('/admin/delivery/:deliveryId', auth(['admin']), async (req, res) => {
         const result = await Delivery.findByIdAndDelete(deliveryId);
         if (!result) return res.status(404).json({ message: 'Delivery not found' });
         res.json({ message: 'Delivery deleted successfully' });
-    } catch (error) { res.status(500).json({ message: 'Server error', error }); }
+    } catch (error) {
+         console.error("Delete Delivery Error:", error);
+         res.status(500).json({ message: 'Server error', error: error.message });
+    }
 });
 
 
 // --- 8. Delivery Boy API Routes (Updated) ---
 
 // 8.1. Get Assigned Deliveries (No change)
-app.get('/delivery/my-deliveries', auth(['delivery']), async (req, res) => { /* ... (same as before) ... */ });
+app.get('/delivery/my-deliveries', auth(['delivery']), async (req, res) => {
+    try {
+        const deliveries = await Delivery.find({
+            assignedTo: req.user.userId,
+            'statusUpdates.status': { $nin: ['Delivered', 'Cancelled'] }
+        }).sort({ createdAt: 1 });
+        res.json(deliveries);
+    } catch (error) {
+         console.error("Fetch Assigned Error:", error);
+         res.status(500).json({ message: 'Error fetching assigned deliveries' });
+    }
+});
 
-// 8.2. Update Status (Scan QR -> Picked Up / Out for Delivery) (Updated)
+// 8.2. Update Status (Scan QR or Manual -> Picked Up / Out for Delivery) (Updated)
 app.post('/delivery/update-status', auth(['delivery']), async (req, res) => {
     try {
         const { trackingId } = req.body;
@@ -292,22 +342,18 @@ app.post('/delivery/update-status', auth(['delivery']), async (req, res) => {
 
         let nextStatus;
         switch (delivery.currentStatus) {
-            case 'Booked':
-                nextStatus = 'Picked Up';
-                break;
-            case 'Picked Up':
-                 nextStatus = 'Out for Delivery';
-                 break;
-            default:
-                // If already Out for Delivery or later, do nothing or return message
-                 return res.status(400).json({ message: `Delivery is already ${delivery.currentStatus}` });
+            case 'Booked': nextStatus = 'Picked Up'; break;
+            case 'Picked Up': nextStatus = 'Out for Delivery'; break;
+            default: return res.status(400).json({ message: `Delivery is already ${delivery.currentStatus}` });
         }
-        
+
         delivery.statusUpdates.push({ status: nextStatus });
         await delivery.save();
         res.json({ trackingId: delivery.trackingId, status: nextStatus });
-
-    } catch (error) { res.status(500).json({ message: 'Server error' }); }
+    } catch (error) {
+         console.error("Update Status Error:", error);
+         res.status(500).json({ message: 'Server error', error: error.message });
+    }
 });
 
 // 8.3. Complete Delivery (OTP) (Updated: Check 'Out for Delivery' status)
@@ -317,11 +363,9 @@ app.post('/delivery/complete', auth(['delivery']), async (req, res) => {
         const delivery = await Delivery.findOne({ trackingId: trackingId, assignedTo: req.user.userId });
 
         if (!delivery) return res.status(404).json({ message: 'Tracking ID not found or not assigned' });
-        // --- (Updated) Must be 'Out for Delivery' to complete ---
         if (delivery.currentStatus !== 'Out for Delivery') {
             return res.status(400).json({ message: `Cannot complete. Status is ${delivery.currentStatus}. Scan again if needed.` });
         }
-        // ----------------------------------------------------
         if (delivery.otp !== otp) return res.status(400).json({ message: 'Invalid OTP!' });
 
         if (delivery.paymentMethod === 'COD') {
@@ -330,18 +374,45 @@ app.post('/delivery/complete', auth(['delivery']), async (req, res) => {
         } else {
              delivery.codPaymentStatus = 'Not Applicable';
         }
-        
+
         delivery.statusUpdates.push({ status: 'Delivered' });
         await delivery.save();
         res.json({ trackingId: delivery.trackingId, status: 'Delivered' });
-    } catch (error) { res.status(500).json({ message: 'Server error' }); }
+    } catch (error) {
+         console.error("Complete Delivery Error:", error);
+         res.status(500).json({ message: 'Server error', error: error.message });
+    }
 });
 
 // 8.4. Subscribe to Push (No change)
-app.post('/subscribe', auth(['delivery']), async (req, res) => { /* ... (same as before) ... */ });
+app.post('/subscribe', auth(['delivery']), async (req, res) => {
+    try {
+        await User.findByIdAndUpdate(req.user.userId, { pushSubscription: req.body });
+        res.status(201).json({ message: 'Subscription saved' });
+    } catch (error) {
+         console.error("Subscribe Error:", error);
+         res.status(500).json({ message: 'Failed to save subscription' });
+    }
+});
 
 // --- 9. Public API Routes (No changes) ---
-app.get('/track/:trackingId', async (req, res) => { /* ... (same as before) ... */ });
+app.get('/track/:trackingId', async (req, res) => {
+    try {
+        const delivery = await Delivery.findOne({ trackingId: req.params.trackingId });
+        if (!delivery) return res.status(404).json({ message: 'यह ट्रैकिंग ID नहीं मिला' });
+        res.json({
+            trackingId: delivery.trackingId,
+            customerName: delivery.customerName,
+            statusUpdates: delivery.statusUpdates,
+            paymentMethod: delivery.paymentMethod,
+            billAmount: delivery.billAmount,
+            currentStatus: delivery.currentStatus
+        });
+    } catch (error) {
+         console.error("Track Error:", error);
+         res.status(500).json({ message: 'Tracking lookup failed' });
+    }
+});
 app.get('/vapid-public-key', (req, res) => res.send(VAPID_PUBLIC_KEY));
 
 // --- 10. Start Server ---
