@@ -283,13 +283,13 @@ app.delete('/admin/delivery/:deliveryId', auth(['admin']), async (req, res) => {
 app.get('/manager/assigned-pickups', auth(['manager']), async (req, res) => {
     try {
         const deliveries = await Delivery.find({
-            assignedByManager: req.user.userId, // Assigned to this manager by Admin
-            assignedTo: null,                   // Not yet assigned to a boy
-            'statusUpdates.status': 'Booked'    // Only if still 'Booked'
+            assignedByManager: req.user.userId,
+            assignedTo: null,
+            'statusUpdates.status': 'Booked'
         }).sort({ createdAt: 1 });
         res.json(deliveries);
     } catch (error) {
-         console.error("Fetch Assigned Pickups Error:", error);
+         console.error("Fetch Assigned Pickups Error:", error); // <-- Ensure this log exists
          res.status(500).json({ message: 'Error fetching assigned pickups' });
     }
 });
@@ -300,7 +300,7 @@ app.get('/manager/my-boys', auth(['manager']), async (req, res) => {
         const users = await User.find({ role: 'delivery', createdByManager: req.user.userId }, 'name email _id isActive phone');
         res.json(users);
     } catch (error) {
-         console.error("Fetch My Boys Error:", error);
+         console.error("Fetch My Boys Error:", error); // <-- Ensure this log exists
          res.status(500).json({ message: 'Error fetching delivery boys' });
     }
 });

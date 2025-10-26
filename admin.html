@@ -233,6 +233,7 @@
             if (!token || role !== 'admin') {
                 localStorage.clear(); window.location.href = '/login'; return;
             }
+
             const adminNameEl = document.getElementById('admin-name');
             const copyrightYearEl = document.getElementById('copyright-year');
             if(adminNameEl) adminNameEl.textContent = localStorage.getItem('userName');
@@ -260,11 +261,10 @@
             if(editUserFormEl) editUserFormEl.addEventListener('submit', handleEditUserSubmit);
 
             // Initial data loads
-            loadManagersForDropdown();
+            loadManagersForDropdown(); // <-- CORRECTED FUNCTION NAME HERE
             loadAllDeliveries();
             // Users loaded when tab clicked
         });
-
         // --- 2. Tab Logic ---
         function openTab(event, tabName) {
             let i, tabcontent, tablinks;
