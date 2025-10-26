@@ -622,11 +622,45 @@
             return false; // Failure
         }
 
+        // --- 7. Action Buttons (Print/Share) ---
         function setupActionButtons(trackingId, otp, phone) {
+            console.log("Setting up action buttons for:", trackingId); // <-- ADD Log 1
             const shareBtn = document.getElementById('share-btn');
             const printBtn = document.getElementById('print-btn');
-            if(shareBtn) shareBtn.onclick = () => { /* ... share logic ... */ };
-            if(printBtn) printBtn.onclick = printLabelInternal;
+
+            if(shareBtn) {
+                shareBtn.onclick = () => {
+                    console.log("Share button clicked!"); // <-- ADD Log 2
+                    const shareText = `Thanks for choosing Sahyog Medical!\nYour Tracking ID: ${trackingId}\nYour OTP for delivery: ${otp}\nTrack here: ${window.location.origin}/track`;
+
+                    if (navigator.share) {
+                        console.log("Attempting navigator.share..."); // <-- ADD Log 3
+                        navigator.share({ title: 'Your Order is Booked!', text: shareText })
+                            .then(() => console.log('Successful share'))
+                            .catch(err => console.error("Share failed:", err)); // Add error handling
+                    } else if (navigator.clipboard) {
+                         console.log("Attempting navigator.clipboard..."); // <-- ADD Log 4
+                        navigator.clipboard.writeText(shareText)
+                            .then(() => alert('Tracking details copied to clipboard!'))
+                            .catch(err => {
+                                 console.error("Clipboard write failed:", err); // Add error handling
+                                 alert('Could not copy details. See console.');
+                             });
+                    } else {
+                         console.log("Fallback: Sharing not supported."); // <-- ADD Log 5
+                         alert('Sharing not supported on this browser. Details logged to console.');
+                         console.log(shareText); // Fallback
+                    }
+                };
+            } else {
+                 console.error("Share button (#share-btn) not found!");
+            }
+
+            if(printBtn) {
+                 printBtn.onclick = printLabelInternal;
+            } else {
+                 console.error("Print button (#print-btn) not found!");
+            }
         }
 
         function printLabelInternal() {

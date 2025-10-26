@@ -311,24 +311,47 @@
          }
 
         // --- 6. Payment QR Modal ---
+        // --- 6. Payment QR Modal ---
         function showPaymentQr(amount, trackingId) {
+            console.log("showPaymentQr called with amount:", amount, " trackingId:", trackingId); // <-- ADD Log 1
             const qrModal = document.getElementById('qr-modal');
             const qrAmountEl = document.getElementById('qr-amount');
             const qrCodeEl = document.getElementById('payment-qrcode');
-            if(!qrModal || !qrAmountEl || !qrCodeEl) return; // Guard clause
+
+            // Guard clause
+            if(!qrModal || !qrAmountEl || !qrCodeEl) {
+                console.error("QR Modal elements not found!");
+                alert("Could not display QR code popup.");
+                return;
+            }
 
             const upiID = 'mab.037325040420024@axisbank';
             const merchantName = 'Sahyog Medical'.replace(/ /g, '%20');
-            const upiQrString = `upi://pay?pa=${upiID}&pn=${merchantName}&am=${amount}&cu=INR&tn=Order-${trackingId}`;
+            // Ensure amount is a valid number for QR code
+            const validAmount = parseFloat(amount);
+             if (isNaN(validAmount) || validAmount <= 0) {
+                 console.error("Invalid amount for QR code:", amount);
+                 alert("Cannot generate QR code for invalid amount.");
+                 return;
+             }
+            const upiQrString = `upi://pay?pa=${upiID}&pn=${merchantName}&am=${validAmount.toFixed(2)}&cu=INR&tn=Order-${trackingId}`; // Use validAmount
+            console.log("Generated UPI String:", upiQrString); // <-- ADD Log 2
 
-            qrAmountEl.textContent = amount;
+            qrAmountEl.textContent = validAmount.toFixed(2);
             qrCodeEl.innerHTML = ''; // Clear previous QR
             try {
-                new QRCode(qrCodeEl, { text: upiQrString, width: 256, height: 256 });
+                console.log("Attempting to generate QR code..."); // <-- ADD Log 3
+                new QRCode(qrCodeEl, {
+                    text: upiQrString,
+                    width: 256,
+                    height: 256,
+                    correctLevel: QRCode.CorrectLevel.M // M level is often sufficient
+                });
+                console.log("Attempting to show modal..."); // <-- ADD Log 4
                 qrModal.style.display = 'flex';
             } catch(e) {
                 console.error("Error generating payment QR:", e);
-                alert("Could not generate payment QR code.");
+                alert("Could not generate payment QR code. See console.");
             }
         }
 
