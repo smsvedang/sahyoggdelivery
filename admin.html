@@ -286,12 +286,13 @@
                     const isCancelable = !['Delivered', 'Cancelled'].includes(d.currentStatus);
 
                     row.innerHTML = `
-                        <td>${d.trackingId}</td>
-                        <td>${d.customerName}</td>
-                        <td><strong>${d.currentStatus}</strong></td>
+                        <td>${d.trackingId || 'N/A'}</td>
+                        <td>${d.customerName || 'N/A'}</td> {/* Check customerName exists */}
+                        <td><strong>${d.currentStatus || 'N/A'}</strong></td>
                         <td>${d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid'}</td>
-                        <td>${d.codPaymentStatus}</td>
-                        <td>${d.assignedTo ? d.assignedTo.name : 'N/A'}</td>
+                        <td>${d.codPaymentStatus || (d.paymentMethod === 'COD' ? 'Pending' : 'N/A')}</td> {/* Show COD Status */}
+                        {/* Check if assignedTo exists AND has a name property */}
+                        <td>${d.assignedTo && d.assignedTo.name ? d.assignedTo.name : 'N/A'}</td>
                         <td>${date}</td>
                         <td>
                             <button class="btn-secondary btn-sm" onclick="reprintLabel('${d._id}')">Reprint</button>
