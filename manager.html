@@ -129,25 +129,23 @@
              if(refreshBoysBtn) refreshBoysBtn.onclick = loadMyBoys;
             if(logoutBtn) logoutBtn.onclick = () => { localStorage.clear(); window.location.href = '/login'; };
 
-            // Initial loads
-            loadPendingPickups();
-            loadMyBoys(); // Load boys initially for dropdowns
+            // Initial loads - Load boys first, then pickups which uses the boys list
+            loadMyBoys().then(() => {
+                loadPendingPickups(); // Load pickups only after boys are loaded
+            });
         });
 
         // --- 2. Tab Logic ---
         function openTab(event, tabName) {
             let i, tabcontent, tablinks;
-            // Get all elements with class="tab-content" and hide them
             tabcontent = document.getElementsByClassName("tab-content");
             for (i = 0; i < tabcontent.length; i++) {
                 if(tabcontent[i]) tabcontent[i].style.display = "none";
             }
-            // Get all elements with class="tab-link" and remove the class "active"
             tablinks = document.getElementsByClassName("tab-link");
             for (i = 0; i < tablinks.length; i++) {
-                if(tablinks[i]) tablinks[i].className = tablinks[i].className.replace(" active", "");
+                 if(tablinks[i]) tablinks[i].className = tablinks[i].className.replace(" active", "");
             }
-            // Show the current tab, and add an "active" class to the button that opened the tab
             const currentTab = document.getElementById(tabName);
             if(currentTab) currentTab.style.display = "block";
             if(event && event.currentTarget) event.currentTarget.className += " active";
@@ -161,28 +159,34 @@
         async function loadPendingPickups() {
             const tbody = document.getElementById('pickups-body');
             if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="6">Loading pending pickups...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6">Loading pickups assigned to you...</td></tr>';
             try {
-                const response = await fetch('/manager/pending-pickups', { headers });
+                // Fetch deliveries assigned to THIS manager
+                const response = await fetch('/manager/assigned-pickups', { headers }); // Changed API endpoint
                 if (response.status === 401) { window.location.href = '/login'; return; }
                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                 const deliveries = await response.json();
                 tbody.innerHTML = '';
                 if(deliveries.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No pending pickups found.</td></tr>'; return;
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No pending pickups assigned to you.</td></tr>'; return;
                 }
                 deliveries.forEach(d => {
                     const row = document.createElement('tr');
                     const date = new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-                    // Create dropdown for assignment
-                    let assignDropdown = `<select id="assign-${d._id}" onchange="assignDelivery('${d._id}', this.value)">`;
-                    assignDropdown += `<option value="">Assign to...</option>`;
-                    myDeliveryBoys.forEach(boy => {
-                        if (boy.isActive) { // Only show active boys
-                             assignDropdown += `<option value="${boy._id}">${boy.name}</option>`;
-                        }
-                    });
-                    assignDropdown += `</select>`;
+
+                    // Build dropdown using the globally stored myDeliveryBoys list
+                    let assignDropdownHTML = `<select id="assign-${d._id}" onchange="assignDelivery('${d._id}', this.value)">`;
+                    assignDropdownHTML += `<option value="">Assign to...</option>`;
+                    if (myDeliveryBoys && myDeliveryBoys.length > 0) {
+                        myDeliveryBoys.forEach(boy => {
+                            if (boy.isActive) {
+                                 assignDropdownHTML += `<option value="${boy._id}">${boy.name}</option>`;
+                            }
+                        });
+                    } else {
+                        assignDropdownHTML += `<option value="" disabled>No active boys</option>`;
+                    }
+                    assignDropdownHTML += `</select>`;
 
                     row.innerHTML = `
                         <td>${d.trackingId}</td>
@@ -190,7 +194,7 @@
                         <td>${d.customerAddress || 'N/A'}</td>
                         <td>${d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid'}</td>
                         <td>${date}</td>
-                        <td>${assignDropdown}</td>
+                        <td>${assignDropdownHTML}</td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -200,54 +204,49 @@
             }
         }
 
-         // --- 4. Load My Delivery Boys (for Manage Tab & Dropdown) ---
+         // --- 4. Load My Delivery Boys ---
         async function loadMyBoys() {
             const tbody = document.getElementById('boys-body');
-            // Reset global array
-            myDeliveryBoys = [];
+            myDeliveryBoys = []; // Reset global list
             if (tbody) tbody.innerHTML = '<tr><td colspan="5">Loading delivery boys...</td></tr>';
 
             try {
                 const response = await fetch('/manager/my-boys', { headers });
                 if (response.status === 401) { window.location.href = '/login'; return; }
-                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                 const users = await response.json();
+                myDeliveryBoys = users; // Store globally
 
-                // Store fetched boys
-                myDeliveryBoys = users;
-
-                if (tbody) { // Update table only if the element exists
-                    tbody.innerHTML = ''; // Clear loading message
+                if (tbody) {
+                    tbody.innerHTML = '';
                     if(users.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No delivery boys found. Add one below.</td></tr>';
                     } else {
                         users.forEach(user => {
                             const row = document.createElement('tr');
                             const statusClass = user.isActive ? 'status-active' : 'status-inactive';
-                            // Actions for manager might be limited, add if needed later
                             row.innerHTML = `
-                                <td>${user.name || 'N/A'}</td> {/* Ensure name exists */}
+                                <td>${user.name || 'N/A'}</td>
                                 <td>${user.email || 'N/A'}</td>
                                 <td>${user.phone || 'N/A'}</td>
                                 <td><span class="${statusClass}">${user.isActive ? 'Active' : 'Inactive'}</span></td>
-                                <td>{/* Actions like Edit/Deactivate could be added here if needed */}</td>
+                                <td>{/* Manager cannot edit boys directly */}</td>
                             `;
                             tbody.appendChild(row);
                         });
                     }
                 }
-                 // Crucial: After loading boys, refresh the pickups tab content
-                 // This ensures the assignment dropdowns are populated/updated
-                 loadPendingPickups(); // Refresh pickups to update dropdowns
+                // Important: Return something to indicate success for the .then() in initial load
+                return true;
 
             } catch (err) {
                  console.error("Error loading my boys:", err);
                  if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="color: red; text-align: center;">Error loading boys: ${err.message}</td></tr>`;
-                 // Attempt to refresh pickups even if boys fail, maybe some pickups exist
-                 loadPendingPickups();
+                 // Return false or throw error to indicate failure
+                 return false;
             }
         }
-        
+
         // --- 5. Handle Create Delivery Boy ---
         async function handleCreateBoySubmit(e) {
              e.preventDefault();
@@ -262,7 +261,6 @@
                  password: document.getElementById('boy-password').value
              };
              try {
-                 // Use the new manager-specific endpoint
                 const response = await fetch('/manager/create-delivery-boy', { method: 'POST', headers, body: JSON.stringify(formData) });
                 const data = await response.json();
                  if (response.ok) {
@@ -283,9 +281,8 @@
 
         // --- 6. Handle Assign Delivery ---
         async function assignDelivery(deliveryId, assignedBoyId) {
-             if (!assignedBoyId) return; // Ignore if "Assign to..." is selected
-             if (!confirm(`Assign this delivery to the selected boy?`)) {
-                 // Reset dropdown if cancelled
+             if (!assignedBoyId) return;
+             if (!confirm(`Assign delivery ${deliveryId} to the selected boy?`)) {
                  const selectEl = document.getElementById(`assign-${deliveryId}`);
                  if(selectEl) selectEl.value = "";
                  return;
@@ -301,20 +298,17 @@
                     alert('Delivery assigned successfully!');
                     loadPendingPickups(); // Refresh the list
                 } else {
-                     alert(`Error: ${data.message}`);
-                      // Reset dropdown on failure
+                     alert(`Error assigning: ${data.message}`);
                      const selectEl = document.getElementById(`assign-${deliveryId}`);
                      if(selectEl) selectEl.value = "";
                 }
              } catch (err) {
                   console.error("Assign delivery error:", err);
                   alert('Server error during assignment.');
-                   // Reset dropdown on failure
-                 const selectEl = document.getElementById(`assign-${deliveryId}`);
-                 if(selectEl) selectEl.value = "";
+                  const selectEl = document.getElementById(`assign-${deliveryId}`);
+                  if(selectEl) selectEl.value = "";
              }
         }
-
     </script>
 
 </body>

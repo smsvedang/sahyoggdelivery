@@ -282,25 +282,27 @@
             if (tabName === 'tab-manage') loadAllUsers();
         }
 
-        // --- 3. Load Delivery Boys (for Dropdown only) ---
-        async function loadDeliveryBoysForDropdown() {
-            const selectBox = document.getElementById('assignedTo');
+        // --- 3. Load Managers (for Dropdown only) --- // Renamed function
+        async function loadManagersForDropdown() {
+            const selectBox = document.getElementById('assignedTo'); // Keep same ID for simplicity
             if (!selectBox) return;
-            selectBox.innerHTML = '<option value="">Select Delivery Boy</option>';
+            selectBox.innerHTML = '<option value="">Assign to Manager...</option>'; // Changed text
             try {
-                const response = await fetch('/admin/users', { headers });
+                const response = await fetch('/admin/users', { headers }); // Fetch all users
                 if (response.status === 401) { window.location.href = '/login'; return; }
                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                 const users = await response.json();
                 users.forEach(user => {
-                    if (user.role === 'delivery' && user.isActive) {
+                    // --- Filter for active MANAGERS ---
+                    if (user.role === 'manager' && user.isActive) {
                         const option = document.createElement('option');
-                        option.value = user._id;
+                        option.value = user._id; // Send Manager's ID
                         option.textContent = `${user.name} (${user.email})`;
                         selectBox.appendChild(option);
                     }
+                    // ---------------------------------
                 });
-            } catch (err) { console.error("Error loading delivery boys for dropdown:", err); }
+            } catch (err) { console.error("Error loading managers for dropdown:", err); }
         }
 
         // --- 4. Load All Deliveries ---
