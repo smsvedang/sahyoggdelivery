@@ -10,15 +10,11 @@
         h1, h2 { color: #333; }
         .header { display: flex; justify-content: space-between; align-items: center; }
         .header button { padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        
-        /* --- नया: टैब (Tab) का स्टाइल --- */
         .tab-bar { border-bottom: 2px solid #ccc; }
         .tab-bar button { background: #eee; border: none; padding: 10px 15px; cursor: pointer; font-size: 16px; border-radius: 5px 5px 0 0; }
         .tab-bar button.active { background: #fff; border-bottom: 2px solid #007bff; }
         .tab-content { display: none; padding-top: 20px; }
         .tab-content.active { display: block; }
-        /* ------------------------------ */
-
         .container { display: flex; flex-wrap: wrap; gap: 20px; }
         .card { background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 25px; flex: 1; min-width: 400px; }
         form label { display: block; font-weight: 600; margin-bottom: 5px; color: #555; }
@@ -29,8 +25,8 @@
         #result.error { background-color: #f8d7da; color: #721c24; }
         #label { border: 2px dashed #333; padding: 20px; display: none; margin-top: 20px; }
         #label-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 15px; }
-        #qr-container { display: flex; justify-content: space-around; text-align: center; }
-        #qrcode-tracking, #qrcode-payment { width: 128px; height: 128px; margin: 10px auto; }
+        /* --- (बदलाव) पेमेंट QR हटा दिया --- */
+        #qrcode-tracking { width: 128px; height: 128px; margin: 10px auto; }
         #action-buttons button { background-color: #6c757d; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; }
         #all-deliveries-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         #all-deliveries-table th, #all-deliveries-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -73,7 +69,7 @@
                     <label for="assignedTo">किसको असाइन करें:</label>
                     <select id="assignedTo">
                         <option value="">Select Delivery Boy</option>
-                        </select>
+                    </select>
                     <button type="submit" id="submit-btn">बुक करें</button>
                 </form>
             </div>
@@ -91,16 +87,11 @@
                         <span id="label-payment-method" style="font-weight:bold;"></span>
                     </div>
                     <p><strong>TO:</strong> <span id="label-name"></span></p>
+                    <p><strong>ADDRESS:</strong> <span id="label-address"></span></p> 
                     <p><strong>TRACKING ID:</strong> <span id="label-tracking-id"></span></p>
-                    <div id="qr-container">
-                        <div>
-                            <div id="qrcode-tracking"></div>
-                            <small>Scan to Track/Update</small>
-                        </div>
-                        <div id="payment-qr-div" style="display:none;">
-                            <div id="qrcode-payment"></div>
-                            <small><strong>Scan to Pay (Bill: ₹<span id="label-bill-amount"></span>)</strong></small>
-                        </div>
+                    <div style="text-align: center;">
+                        <div id="qrcode-tracking"></div>
+                        <small>Scan to Track/Update</small>
                     </div>
                 </div>
             </div>
@@ -124,7 +115,7 @@
                     </tr>
                 </thead>
                 <tbody id="all-deliveries-body">
-                    </tbody>
+                </tbody>
             </table>
         </div>
     </div>
@@ -149,78 +140,58 @@
 
     <script>
         const token = localStorage.getItem('authToken');
-        const role = localStorage.getItem('userRole'); // नया: रोल (Role) को पढ़ना
-        
+        const role = localStorage.getItem('userRole');
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         };
 
-        // --- 1. (सबसे ज़रूरी) सिक्योरिटी गार्ड ---
+        // --- 1. सिक्योरिटी गार्ड ---
         window.onload = () => {
-            // अगर टोकन नहीं है या रोल 'admin' नहीं है, तो बाहर निकालो
             if (!token || role !== 'admin') {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('userName');
-                localStorage.removeItem('userRole');
-                window.location.href = '/login'; // लॉगिन पेज पर वापस भेजें
-                return; // बाकी का कोड मत चलाओ
+                localStorage.clear(); // सब कुछ साफ़ करें
+                window.location.href = '/login';
+                return;
             }
-            
-            // अगर एडमिन है, तो ही पेज लोड करो
             document.getElementById('admin-name').textContent = localStorage.getItem('userName');
             loadDeliveryBoys();
             loadAllDeliveries();
         };
 
-        // --- 2. टैब (Tab) का लॉजिक ---
+        // --- 2. टैब का लॉजिक ---
         function openTab(event, tabName) {
             let i, tabcontent, tablinks;
             tabcontent = document.getElementsByClassName("tab-content");
-            for (i = 0; i < tabcontent.length; i++) {
-                tabcontent[i].style.display = "none";
-            }
+            for (i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
             tablinks = document.getElementsByClassName("tab-link");
-            for (i = 0; i < tablinks.length; i++) {
-                tablinks[i].className = tablinks[i].className.replace(" active", "");
-            }
+            for (i = 0; i < tablinks.length; i++) tablinks[i].className = tablinks[i].className.replace(" active", "");
             document.getElementById(tabName).style.display = "block";
             event.currentTarget.className += " active";
-            
-            // अगर "All Deliveries" टैब खोला है, तो लिस्ट रीफ्रेश करें
-            if (tabName === 'tab-deliveries') {
-                loadAllDeliveries();
-            }
+            if (tabName === 'tab-deliveries') loadAllDeliveries();
         }
 
         // --- 3. डिलीवरी बॉय की लिस्ट लोड करें ---
         async function loadDeliveryBoys() {
             const selectBox = document.getElementById('assignedTo');
             const userList = document.getElementById('delivery-boy-list');
-            selectBox.innerHTML = '<option value="">Select Delivery Boy</option>'; // Reset
+            selectBox.innerHTML = '<option value="">Select Delivery Boy</option>';
             userList.innerHTML = 'Loading...';
-
             try {
                 const response = await fetch('/admin/delivery-boys', { headers });
                 if (response.status === 401) window.location.href = '/login';
                 if (!response.ok) throw new Error('Failed to load users');
-                
                 const users = await response.json();
-                userList.innerHTML = ''; // Clear
-                
+                userList.innerHTML = '';
                 users.forEach(user => {
                     const option = document.createElement('option');
                     option.value = user._id;
                     option.textContent = `${user.name} (${user.email})`;
                     selectBox.appendChild(option);
-                    
                     const li = document.createElement('li');
                     li.textContent = `${user.name} (${user.email})`;
                     userList.appendChild(li);
                 });
-            } catch (err) {
-                userList.innerHTML = `Error: ${err.message}`;
-            }
+            } catch (err) { userList.innerHTML = `Error: ${err.message}`; }
         }
 
         // --- 4. सभी डिलीवरी की लिस्ट लोड करें ---
@@ -228,19 +199,15 @@
         async function loadAllDeliveries() {
             const tbody = document.getElementById('all-deliveries-body');
             tbody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
-            
             try {
                 const response = await fetch('/admin/deliveries', { headers });
                 if (response.status === 401) window.location.href = '/login';
                 if (!response.ok) throw new Error('Failed to load deliveries');
-
                 const deliveries = await response.json();
-                tbody.innerHTML = ''; // Clear loading
-                
+                tbody.innerHTML = '';
                 deliveries.forEach(d => {
                     const row = document.createElement('tr');
                     const date = new Date(d.createdAt).toLocaleDateString('en-IN');
-                    
                     row.innerHTML = `
                         <td>${d.trackingId}</td>
                         <td>${d.customerName}</td>
@@ -252,16 +219,13 @@
                     `;
                     tbody.appendChild(row);
                 });
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="7">Error: ${err.message}</td></tr>`;
-            }
+            } catch (err) { tbody.innerHTML = `<tr><td colspan="7">Error: ${err.message}</td></tr>`; }
         }
 
-        // --- 5. बुकिंग फॉर्म का लॉजिक ---
+        // --- 5. बुकिंग फॉर्म का लॉजिक (अपडेटेड: QR लॉजिक हटाया) ---
         const bookingForm = document.getElementById('booking-form');
         bookingForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-            
             const submitBtn = document.getElementById('submit-btn');
             submitBtn.disabled = true;
             submitBtn.textContent = "Booking...";
@@ -269,14 +233,10 @@
             const resultDiv = document.getElementById('result');
             const labelDiv = document.getElementById('label');
             const qrTrackingDiv = document.getElementById('qrcode-tracking');
-            const qrPaymentDiv = document.getElementById('qrcode-payment');
-            const qrPaymentContainer = document.getElementById('payment-qr-div');
             
             labelDiv.style.display = 'none';
             document.getElementById('action-buttons').style.display = 'none';
             qrTrackingDiv.innerHTML = '';
-            qrPaymentDiv.innerHTML = '';
-            qrPaymentContainer.style.display = 'none';
             resultDiv.innerHTML = '';
             resultDiv.className = '';
 
@@ -290,45 +250,33 @@
             };
 
             try {
-                const response = await fetch('/book', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify(formData)
-                });
-
+                const response = await fetch('/book', { method: 'POST', headers: headers, body: JSON.stringify(formData) });
                 const data = await response.json();
-
                 if (response.ok) {
                     resultDiv.className = 'success';
                     resultDiv.innerHTML = `<strong>${data.message}</strong><br>Tracking ID: ${data.trackingId} | OTP: ${data.otp}`;
                     
+                    // --- नया लेबल (Address के साथ) ---
                     document.getElementById('label-name').textContent = formData.name;
+                    document.getElementById('label-address').textContent = formData.address; // पता वापस जोड़ा
                     document.getElementById('label-tracking-id').textContent = data.trackingId;
                     document.getElementById('label-payment-method').textContent = formData.paymentMethod;
-                    new QRCode(qrTrackingDiv, { text: data.trackingId, width: 128, height: 128 });
 
-                    if (data.upiQrString) {
-                        qrPaymentContainer.style.display = 'block';
-                        document.getElementById('label-bill-amount').textContent = formData.billAmount;
-                        new QRCode(qrPaymentDiv, { text: data.upiQrString, width: 128, height: 128 });
-                    }
+                    new QRCode(qrTrackingDiv, { text: data.trackingId, width: 128, height: 128 });
 
                     labelDiv.style.display = 'block';
                     document.getElementById('action-buttons').style.display = 'block';
                     setupActionButtons(data.trackingId, data.otp, formData.phone);
                     loadAllDeliveries();
                     bookingForm.reset();
-
                 } else {
                     resultDiv.className = 'error';
                     resultDiv.innerHTML = `<strong>गड़बड़ी:</strong> ${data.message}`;
                 }
-
             } catch (error) {
                 resultDiv.className = 'error';
                 resultDiv.innerHTML = `<strong>सर्वर से कनेक्ट नहीं हो पा रहा है।</strong>`;
             }
-            
             submitBtn.disabled = false;
             submitBtn.textContent = "बुक करें";
         });
@@ -343,23 +291,16 @@
                 email: document.getElementById('boy-email').value,
                 password: document.getElementById('boy-password').value
             };
-            
             resultDiv.textContent = 'Creating...';
             resultDiv.className = '';
-
             try {
-                const response = await fetch('/admin/create-delivery-boy', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify(formData)
-                });
+                const response = await fetch('/admin/create-delivery-boy', { method: 'POST', headers: headers, body: JSON.stringify(formData) });
                 const data = await response.json();
-
                 if (response.ok) {
                     resultDiv.className = 'success';
                     resultDiv.textContent = data.message;
                     form.reset();
-                    loadDeliveryBoys(); // लिस्ट रीफ्रेश करें
+                    loadDeliveryBoys();
                 } else {
                     resultDiv.className = 'error';
                     resultDiv.textContent = `Error: ${data.message}`;
@@ -381,14 +322,12 @@
                     alert('Tracking details copied to clipboard!');
                 }
             };
-            
             document.getElementById('print-btn').onclick = () => {
                 const labelContent = document.getElementById('label').innerHTML;
                 const printWindow = window.open('', '_blank');
                 printWindow.document.write(`<html><head><title>Print Label</title><style>
                     body{font-family:Arial,sans-serif;} 
-                    #qr-container { display: flex; justify-content: space-around; }
-                    #qrcode-tracking img, #qrcode-payment img { width: 128px; height: 128px; }
+                    #qrcode-tracking img { width: 128px; height: 128px; }
                     @media print { body { -webkit-print-color-adjust: exact; } }
                 </style></head><body>`);
                 printWindow.document.write(labelContent);
@@ -402,11 +341,8 @@
         function toggleBillAmount(value) {
             document.getElementById('billAmountDiv').style.display = (value === 'COD') ? 'block' : 'none';
         }
-        
         document.getElementById('logout-btn').onclick = () => {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('userName');
-            localStorage.removeItem('userRole'); // रोल (Role) को भी हटाएँ
+            localStorage.clear();
             window.location.href = '/login';
         };
     </script>
