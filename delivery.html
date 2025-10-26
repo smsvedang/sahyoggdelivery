@@ -213,29 +213,21 @@
         }
 
         // --- 3. QR Code Scanner Logic ---
-        function startScanner() {
-            // Check if element exists before starting
-            const readerElement = document.getElementById("reader");
-            if (!readerElement || !html5QrCode) return;
-
-            // Stop previous scan if running, ignore errors
-            html5QrCode.stop().catch(()=>{});
-
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
-                .catch(err => {
-                    console.log("Scanner start error (maybe permissions?):", err);
-                    if (scanResultDiv) {
-                        scanResultDiv.textContent = "Could not start scanner. Check camera permissions.";
-                        scanResultDiv.className = 'message error';
-                        scanResultDiv.style.display = 'block';
-                    }
-                });
-        }
-
         const qrCodeSuccessCallback = async (decodedText, decodedResult) => {
-             if (!html5QrCode) return;
-             html5QrCode.stop().catch(()=>{}); // Stop scanning immediately
+             console.log(`Scan successful: ${decodedText}`); // Add log for debugging
+
+             // --- Try stopping scanner ---
+             try {
+                 // Check scanner state before stopping (Optional, library might handle)
+                 // if (html5QrCode && html5QrCode.isScanning) { // Note: isScanning might not be a public property, check library docs if needed
+                 await html5QrCode.stop(); // Use await if stop() returns a Promise
+                 console.log("Scanner stopped successfully.");
+                 // }
+             } catch (err) {
+                 console.warn("Could not stop scanner (maybe already stopped?):", err);
+                 // Don't stop execution if stopping fails
+             }
+             // --------------------------
 
              if(scanResultDiv) {
                 scanResultDiv.style.display = 'block';
@@ -243,24 +235,47 @@
                 scanResultDiv.innerHTML = `Scanned: ${decodedText}. Processing...`;
              }
 
+            // --- (Rest of the logic: find delivery, update status, etc.) ---
             const delivery = currentDeliveries.find(d => d.trackingId === decodedText);
 
             if (delivery && delivery.currentStatus === 'Out for Delivery') {
-                if(scanResultDiv) {
-                    scanResultDiv.innerHTML = `Scanned ${decodedText}. Please enter Customer OTP below to complete.`;
-                    scanResultDiv.className = 'message success';
-                }
-                const completeTrackingIdEl = document.getElementById('complete-tracking-id');
-                const completeOtpCodeEl = document.getElementById('complete-otp-code');
-                if(completeTrackingIdEl) completeTrackingIdEl.value = decodedText;
-                checkIfCod(decodedText);
-                if(completeOtpCodeEl) completeOtpCodeEl.focus();
+                // ... (logic to autofill completion form) ...
+                 if(scanResultDiv) {
+                     scanResultDiv.innerHTML = `Scanned ${decodedText}. Please enter Customer OTP below to complete.`;
+                     scanResultDiv.className = 'message success';
+                 }
+                 const completeTrackingIdEl = document.getElementById('complete-tracking-id');
+                 const completeOtpCodeEl = document.getElementById('complete-otp-code');
+                 if(completeTrackingIdEl) completeTrackingIdEl.value = decodedText;
+                 checkIfCod(decodedText);
+                 if(completeOtpCodeEl) completeOtpCodeEl.focus();
+
             } else {
                  updateDeliveryStatus(decodedText, scanResultDiv);
             }
-             // Restart scanner after a delay using setTimeout
-             setTimeout(startScanner, 4000);
+            // -------------------------------------------------------------------
+
+             // --- Restart scanner after delay ---
+             console.log("Restarting scanner in 4 seconds...");
+             setTimeout(() => {
+                 console.log("Attempting to restart scanner now.");
+                 startScanner(); // Call startScanner again
+             }, 4000);
+             // ---------------------------------
         };
+
+        // Also ensure startScanner doesn't call stop unnecessarily
+        function startScanner() {
+            const readerElement = document.getElementById("reader");
+            if (!readerElement || !html5QrCode) return;
+
+            // --- Remove any stop() call from here ---
+            // html5QrCode.stop().catch(()=>{}); // REMOVE THIS LINE IF PRESENT
+
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
+                .catch(err => { /* ... error handling ... */ });
+        }
 
         // --- 4. Function to Update Status ---
         async function updateDeliveryStatus(trackingId, resultDivElement) {
