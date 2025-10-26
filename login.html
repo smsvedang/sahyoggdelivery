@@ -30,50 +30,69 @@
     </div>
 
     <script>
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const messageDiv = document.getElementById('message');
-        messageDiv.textContent = 'Logging in...';
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); // Prevent default form submission
 
-        try {
-            const response = await fetch('/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const messageDiv = document.getElementById('message');
 
-            const data = await response.json();
+            if (!messageDiv) return; // Exit if message element is missing
 
-            if (response.ok) {
-                messageDiv.style.color = 'green';
-                messageDiv.textContent = data.message;
-                
-                // --- (ज़रूरी बदलाव) ---
-                // अब हम रोल (Role) को भी सेव कर रहे हैं
-                localStorage.setItem('authToken', data.token);
-                localStorage.setItem('userName', data.name);
-                localStorage.setItem('userRole', data.role); // <-- यह नई लाइन है
-                // -------------------------
-                
-                // --- रोल (Role) के हिसाब से सही पेज पर भेजें ---
-                if (data.role === 'admin') {
-                    window.location.href = '/admin'; // एडमिन पैनल पर जाएँ
-                } else if (data.role === 'delivery') {
-                    window.location.href = '/delivery'; // डिलीवरी पैनल पर जाएँ
+            messageDiv.textContent = 'Logging in...';
+            messageDiv.style.color = 'black'; // Reset color
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json(); // Always try to parse JSON
+
+                if (response.ok) {
+                    messageDiv.style.color = 'green';
+                    messageDiv.textContent = data.message || 'Login successful!'; // Use server message or default
+
+                    // Log the received data for debugging
+                    console.log("Login successful, received data:", data);
+
+                    // Save token and user info to localStorage
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('userName', data.name);
+                    localStorage.setItem('userRole', data.role); // Crucial for role checks
+
+                    // Redirect based on the role received from the server
+                    if (data.role === 'admin') {
+                        console.log("Redirecting to /admin");
+                        window.location.href = '/admin'; // Redirect to admin page
+                    } else if (data.role === 'delivery') {
+                        console.log("Redirecting to /delivery");
+                        window.location.href = '/delivery'; // Redirect to delivery page
+                    } else if (data.role === 'manager') {
+                        console.log("Redirecting to /manager");
+                        window.location.href = '/manager'; // Redirect to manager page
+                    } else {
+                        // Handle unexpected roles
+                        console.error("Unknown user role received:", data.role);
+                        messageDiv.style.color = 'red';
+                        messageDiv.textContent = 'Login successful, but role is unknown! Cannot redirect.';
+                    }
+                } else {
+                    // Handle login errors (e.g., wrong password, user not found)
+                    console.error("Login failed:", data);
+                    messageDiv.style.color = 'red';
+                    messageDiv.textContent = `Error: ${data.message || `Server responded with ${response.status}`}`; // Show server error message
                 }
-            } else {
+            } catch (err) {
+                // Handle network errors or issues connecting to the server
+                console.error("Network or fetch error during login:", err);
                 messageDiv.style.color = 'red';
-                messageDiv.textContent = `Error: ${data.message}`;
+                messageDiv.textContent = 'Error connecting to the server. Please try again.';
             }
-        } catch (err) {
-            messageDiv.style.color = 'red';
-            messageDiv.textContent = 'Error connecting to server.';
-        }
-    });
-</script>
+        });
+    </script>
 <div class="footer" style="text-align: center; margin-top: 30px; color: #888; font-size: 0.9em;">
         Copyright © <span id="copyright-year"></span> Sahyog Medical. All Rights Reserved.
     </div>
