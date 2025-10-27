@@ -46,6 +46,7 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 const User = mongoose.model('User', userSchema);
 
+
 // 4.2. Delivery Schema
 const deliverySchema = new mongoose.Schema({
     customerName: String,
@@ -75,6 +76,19 @@ deliverySchema.virtual('currentStatus').get(function() {
 });
 deliverySchema.set('toJSON', { virtuals: true });
 const Delivery = mongoose.model('Delivery', deliverySchema);
+
+// 4.3. Business Settings Schema
+const BusinessSettingsSchema = new mongoose.Schema({
+    businessName: { type: String, default: 'Sahyog Medical' },
+    businessAddress: { type: String, default: 'Your Business Address, City, State, Country, PIN' },
+    businessPhone: { type: String, default: '+91 9876543210' },
+    logoUrl: { type: String, default: '' }, // URL for the business logo
+    upiId: { type: String, default: '' },
+    upiName: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now }
+});
+
+const BusinessSettings = mongoose.model('BusinessSettings', BusinessSettingsSchema);
 
 // --- 5. Auth APIs ---
 
@@ -460,7 +474,40 @@ app.get('/vapid-public-key', (req, res) => res.send(VAPID_PUBLIC_KEY));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`सर्वर ${PORT} पर चल रहा है`));
 
-// --- 12. Create Admin User (one-time) ---
+// 12. Business Settings Management (Admin Only)
+// Get business settings
+app.get('/admin/settings', auth(['admin']), async (req, res) => {
+    try {
+        // Find the single settings document, create if it doesn't exist
+        let settings = await BusinessSettings.findOne();
+        if (!settings) {
+            settings = await BusinessSettings.create({}); // Create with defaults
+        }
+        res.json(settings);
+    } catch (error) {
+        console.error('Error fetching business settings:', error);
+        res.status(500).json({ message: 'Error fetching business settings' });
+    }
+});
+
+// Update business settings
+app.put('/admin/settings', auth(['admin']), async (req, res) => {
+    try {
+        const { businessName, businessAddress, businessPhone, logoUrl, upiId, upiName } = req.body;
+        // Find and update the single settings document, create if it doesn't exist
+        const updatedSettings = await BusinessSettings.findOneAndUpdate(
+            {}, // Empty filter to find the single document
+            { businessName, businessAddress, businessPhone, logoUrl, upiId, upiName },
+            { new: true, upsert: true, setDefaultsOnInsert: true } // Return updated doc, create if not found, use defaults
+        );
+        res.json({ message: 'Business settings updated successfully!', settings: updatedSettings });
+    } catch (error) {
+        console.error('Error updating business settings:', error);
+        res.status(500).json({ message: 'Error updating business settings' });
+    }
+});
+
+// --- 13. Create Admin User (one-time) ---
 async function createAdminUser() {
     try {
         const adminEmail = 'sahyogmns';

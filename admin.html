@@ -89,6 +89,7 @@
         <button class="tab-link active" onclick="openTab(event, 'tab-book')">Book Courier</button>
         <button class="tab-link" onclick="openTab(event, 'tab-deliveries')">All Deliveries</button>
         <button class="tab-link" onclick="openTab(event, 'tab-manage')">Manage Users</button>
+        <button class="tab-link" onclick="openTab(event, 'tab-settings')">Business Settings</button>
     </div>
 
     <div id="tab-book" class="tab-content active">
@@ -175,6 +176,39 @@
         </div>
     </div>
 
+<div id="tab-settings" class="tab-content">
+    <div class="card" style="min-width: 95%;">
+        <h2>Business Settings</h2>
+        <form id="business-settings-form">
+            <h3>Business Information</h3>
+            <label for="business-name">Business Name:</label>
+            <input type="text" id="business-name" value="Sahyog Medical" required>
+
+            <label for="business-address">Business Address:</label>
+            <input type="text" id="business-address" value="456 Industrial Blvd, Los Angeles, 90001, USA" required>
+
+            <label for="business-phone">Business Phone:</label>
+            <input type="text" id="business-phone" value="+1 (555) 123-4567" required>
+
+            <h3>Logo Management</h3>
+            <label for="business-logo-url">Logo Image URL:</label>
+            <input type="text" id="business-logo-url" placeholder="e.g., https://example.com/logo.png">
+            <p>Current Logo Preview:</p>
+            <img id="logo-preview" src="" alt="Business Logo" style="max-width: 150px; max-height: 75px; border: 1px solid #ddd; padding: 5px; margin-bottom: 15px; background: white; display: none;">
+
+            <h3>Payment Management (UPI)</h3>
+            <label for="upi-id">UPI ID (e.g., yourname@bank):</label>
+            <input type="text" id="upi-id" placeholder="Enter UPI ID for payments">
+
+            <label for="upi-name">UPI Beneficiary Name:</label>
+            <input type="text" id="upi-name" placeholder="Name associated with UPI ID">
+
+            <button type="submit" class="btn-primary" style="margin-top: 20px;">Save Settings</button>
+        </form>
+        <div id="settings-result" class="message" style="margin-top: 15px;"></div>
+    </div>
+</div>
+
     <div id="user-edit-modal" class="modal">
         <div class="modal-content">
             <span class="close-button" onclick="closeModal('user-edit-modal')">&times;</span>
@@ -235,11 +269,12 @@
         const token = localStorage.getItem('authToken');
         const role = localStorage.getItem('userRole');
         const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-        let allDeliveriesData = [];
-        let allUsersData = [];
+        let allDeliveriesData = []; // Store delivery data for reprint
+        let allUsersData = []; // Store user data for editing
+        let businessSettings = {}; // NEW: To store loaded business settings
 
         // --- 1. Security Guard & Initial Load ---
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', () => { // Use DOMContentLoaded
             if (!token || role !== 'admin') {
                 localStorage.clear(); window.location.href = '/login'; return;
             }
@@ -255,6 +290,7 @@
             const bookingFormEl = document.getElementById('booking-form');
             const addUserFormEl = document.getElementById('add-user-form');
             const editUserFormEl = document.getElementById('edit-user-form');
+            const businessSettingsForm = document.getElementById('business-settings-form'); // Added Settings Form Listener
 
             if(refreshBtn) refreshBtn.onclick = loadAllDeliveries;
             if(addUserBtn) addUserBtn.onclick = () => {
@@ -268,11 +304,14 @@
             if(bookingFormEl) bookingFormEl.addEventListener('submit', handleBookingSubmit);
             if(addUserFormEl) addUserFormEl.addEventListener('submit', handleAddUserSubmit);
             if(editUserFormEl) editUserFormEl.addEventListener('submit', handleEditUserSubmit);
+            if(businessSettingsForm) businessSettingsForm.addEventListener('submit', handleBusinessSettingsSubmit); // Added Listener Call
 
             // Initial data loads
             loadManagersForDropdown();
             loadAllDeliveries();
+            loadBusinessSettingsOnLoad(); // Load settings initially
             // Users loaded when tab clicked
+            // Settings loaded when tab clicked
         });
 
         // --- 2. Tab Logic ---
@@ -287,6 +326,7 @@
             if (event && event.currentTarget) event.currentTarget.className += " active";
             if (tabName === 'tab-deliveries') loadAllDeliveries();
             if (tabName === 'tab-manage') loadAllUsers();
+            if (tabName === 'tab-settings') loadBusinessSettings(); // Load settings when tab is opened
         }
 
         // --- 3. Load Managers (for Dropdown only) ---
@@ -314,7 +354,7 @@
         async function loadAllDeliveries() {
             const tbody = document.getElementById('all-deliveries-body');
             if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="10">Loading deliveries...</td></tr>'; // Increased colspan to 10
+            tbody.innerHTML = '<tr><td colspan="10">Loading deliveries...</td></tr>';
             try {
                 const response = await fetch('/admin/deliveries', { headers });
                 if (response.status === 401) { window.location.href = '/login'; return; }
@@ -323,7 +363,7 @@
                 allDeliveriesData = deliveries;
                 tbody.innerHTML = '';
                 if(deliveries.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align: center;">No deliveries found.</td></tr>'; return; // Increased colspan
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align: center;">No deliveries found.</td></tr>'; return;
                 }
                 deliveries.forEach(d => {
                     const row = document.createElement('tr');
@@ -352,7 +392,7 @@
                 });
             } catch (err) {
                  console.error("Error loading deliveries:", err);
-                 tbody.innerHTML = `<tr><td colspan="10" style="color: red; text-align: center;">Error: ${err.message}</td></tr>`; // Increased colspan
+                 tbody.innerHTML = `<tr><td colspan="10" style="color: red; text-align: center;">Error: ${err.message}</td></tr>`;
             }
         }
 
@@ -382,7 +422,6 @@
                  if (response.ok) {
                      resultDiv.className = 'success';
                      resultDiv.innerHTML = `<strong>${data.message}</strong><br>Tracking ID: ${data.trackingId} | OTP: ${data.otp}`;
-                     // Pass phone to generateLabel
                      const labelGenerated = generateLabel(formData.name, formData.address, data.trackingId, formData.paymentMethod, formData.phone);
                      if (labelGenerated) {
                          document.getElementById('action-buttons').style.display = 'block';
@@ -460,10 +499,7 @@
                      resultDiv.textContent = data.message; resultDiv.className = 'message success';
                      e.target.reset();
                      loadAllUsers();
-                     // Refresh appropriate dropdown based on role created
-                     if (formData.role === 'manager') {
-                         loadManagersForDropdown();
-                     }
+                     if (formData.role === 'manager') { loadManagersForDropdown(); } // Refresh manager dropdown if manager added
                      setTimeout(() => closeModal('add-user-modal'), 1500);
                  } else {
                      resultDiv.textContent = `Error: ${data.message}`; resultDiv.className = 'message error';
@@ -536,7 +572,6 @@
         function reprintLabel(deliveryId) {
             const delivery = allDeliveriesData.find(d => d._id === deliveryId);
             if (!delivery) { alert('Delivery data not found.'); return; }
-            // Pass phone number to label generator
             const generated = generateLabel(delivery.customerName, delivery.customerAddress, delivery.trackingId, delivery.paymentMethod, delivery.customerPhone);
             if (generated) {
                  const resultArea = document.getElementById('result-area');
@@ -564,53 +599,80 @@
         }
 
         // --- 8. Label Generation & Print ---
-        function generateLabel(name, address, trackingId, paymentMethod, phone) { // Added phone param
+        function generateLabel(name, address, trackingId, paymentMethod, phone) {
             const labelDiv = document.getElementById('label');
             if (!labelDiv) { console.error("#label not found!"); return false; }
+
+            const logoHtml = businessSettings.logoUrl
+                ? `<img src="${businessSettings.logoUrl}" alt="${businessSettings.businessName || 'Logo'}" style="max-width: 100px; max-height: 50px; display: block; margin-right: 10px;">`
+                : '';
+
+            // Removed inline styles, rely on CSS @media print and the new .label-grid styles
             labelDiv.innerHTML = `
-                <div id="label-header"><h3>Sahyog Medical</h3><span style="font-weight:bold;">${paymentMethod||'N/A'}</span></div>
-                <p><strong>TO:</strong> ${name||'N/A'}</p>
-                <p><strong>ADDRESS:</strong> ${address||'N/A'}</p>
-                <p><strong>PHONE:</strong> ${phone||'N/A'}</p> {/* Added phone */}
-                <p><strong>TRACKING ID:</strong> ${trackingId||'N/A'}</p>
-                <div style="text-align: center;"><div id="qrcode-tracking"></div><small>Scan to Track/Update</small></div>
-            `;
+                <div class="label-grid">
+                     <div class="label-cell cell-ship-to">
+                         <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center;">
+                             ${logoHtml}SHIP TO:
+                         </div>
+                         <p style="margin: 0; padding: 0;"><strong>${name || 'N/A'}</strong></p>
+                         <p style="margin: 0; padding: 0; white-space: pre-wrap;">${address || 'N/A'}</p>
+                         <p style="margin: 0; padding: 0;">Ph: ${phone || 'N/A'}</p>
+                     </div>
+                     <div class="label-cell cell-from">
+                         <div style="font-weight: bold; margin-bottom: 5px;">FROM:</div>
+                         <p style="margin: 0; padding: 0;"><strong>${businessSettings.businessName || 'Sahyog Medical'}</strong></p>
+                         <p style="margin: 0; padding: 0; white-space: pre-wrap;">${businessSettings.businessAddress || 'N/A'}</p>
+                         <p style="margin: 0; padding: 0;">Ph: ${businessSettings.businessPhone || 'N/A'}</p>
+                     </div>
+                     <div class="label-cell cell-order-id">
+                         ORDER ID: <strong style="float: right;">${trackingId || 'N/A'}</strong>
+                     </div>
+                     <div class="label-cell cell-remarks">
+                         REMARKS: <strong style="float: right;">${paymentMethod || 'Prepaid'}</strong>
+                     </div>
+                     <div class="label-cell cell-weight">WEIGHT: <strong style="float: right;">N/A</strong></div>
+                     <div class="label-cell cell-dimensions">DIMENSIONS: <strong style="float: right;">N/A</strong></div>
+                     <div class="label-cell cell-shipping-date">
+                         SHIPPING DATE: <strong style="float: right;">${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-')}</strong>
+                     </div>
+                     <div class="label-cell cell-barcode-qr">
+                         <div id="qrcode-tracking"></div> {/* Changed ID back */}
+                         <div style="font-size: 8pt; font-weight: bold; letter-spacing: 1px;">TRACK${trackingId || 'N/A'}</div>
+                     </div>
+                </div>`;
             labelDiv.style.display = 'block';
-            const qrElement = labelDiv.querySelector('#qrcode-tracking');
+
+            const qrElement = labelDiv.querySelector('#qrcode-tracking'); // Use correct ID
             if (qrElement && trackingId) {
                 qrElement.innerHTML = '';
                 try {
-                    new QRCode(qrElement, { text: trackingId, width: 128, height: 128, correctLevel: QRCode.CorrectLevel.H });
+                    new QRCode(qrElement, { text: trackingId, width: 90, height: 90, correctLevel: QRCode.CorrectLevel.H });
                     return true;
                 } catch (qrError) { console.error("QR Error:", qrError); qrElement.innerHTML = '<p style="color:red; font-size: small;">QR Error</p>'; }
             } else { console.error("QR Placeholder/TrackingID missing."); }
             return false;
         }
+
         function setupActionButtons(trackingId, otp, phone) {
             const shareBtn = document.getElementById('share-btn');
             const printBtn = document.getElementById('print-btn');
             if (shareBtn) {
-                shareBtn.onclick = async () => { // Make async
+                shareBtn.onclick = async () => {
                     console.log("Share button clicked. Data:", { trackingId, otp });
                     const shareText = `Thanks for choosing Sahyog Medical!\nYour Tracking ID: ${trackingId}\nYour OTP for delivery: ${otp}\nTrack here: ${window.location.origin}/track`;
                     if (navigator.share) {
-                        try {
-                            console.log("Trying navigator.share...");
-                            await navigator.share({ title: 'Your Order is Booked!', text: shareText });
-                            console.log('Shared successfully via navigator.share');
-                        } catch (err) {
-                            console.error("Navigator.share failed:", err);
+                        try { await navigator.share({ title: 'Your Order is Booked!', text: shareText }); console.log('Shared OK'); }
+                        catch (err) {
+                            console.error("Share failed:", err);
                             if (navigator.clipboard) {
-                                console.log("Falling back to clipboard...");
-                                try { await navigator.clipboard.writeText(shareText); alert('Tracking details copied!'); }
-                                catch (clipErr) { console.error("Clipboard write failed:", clipErr); alert('Could not copy.'); console.log("Manual Copy:\n", shareText); }
-                            } else { alert('Sharing failed. Details logged.'); console.log("Manual Copy:\n", shareText); }
+                                try { await navigator.clipboard.writeText(shareText); alert('Details copied!'); }
+                                catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log(shareText); }
+                            } else { alert('Share/Copy failed.'); console.log(shareText); }
                         }
                     } else if (navigator.clipboard) {
-                        console.log("Trying navigator.clipboard directly...");
-                        try { await navigator.clipboard.writeText(shareText); alert('Tracking details copied!'); }
-                        catch (clipErr) { console.error("Clipboard write failed:", clipErr); alert('Could not copy.'); console.log("Manual Copy:\n", shareText); }
-                    } else { console.log("Sharing not supported."); alert('Sharing not supported. Details logged.'); console.log("Manual Copy:\n", shareText); }
+                        try { await navigator.clipboard.writeText(shareText); alert('Details copied!'); }
+                        catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log(shareText); }
+                    } else { alert('Share/Copy failed.'); console.log(shareText); }
                 };
             } else { console.error("#share-btn not found!"); }
             if (printBtn) { printBtn.onclick = printLabelInternal; }
@@ -630,6 +692,97 @@
         // --- 10. Helper Functions ---
         function toggleBillAmount(value) { const div = document.getElementById('billAmountDiv'); if(div) div.style.display = (value === 'COD') ? 'block' : 'none'; }
         // Logout handled in event listener setup
+
+        // --- 11. Business Settings Logic ---
+        async function loadBusinessSettings() { // Loads when tab is opened
+            const resultDiv = document.getElementById('settings-result');
+            const logoPreview = document.getElementById('logo-preview');
+            if(!resultDiv || !logoPreview) return;
+            resultDiv.textContent = 'Loading settings...';
+            try {
+                const response = await fetch('/admin/settings', { headers });
+                if (response.status === 401) { window.location.href = '/login'; return; }
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                const settings = await response.json();
+
+                // Populate form fields
+                const nameEl = document.getElementById('business-name');
+                const addressEl = document.getElementById('business-address');
+                const phoneEl = document.getElementById('business-phone');
+                const logoUrlEl = document.getElementById('business-logo-url');
+                const upiIdEl = document.getElementById('upi-id');
+                const upiNameEl = document.getElementById('upi-name');
+
+                if(nameEl) nameEl.value = settings.businessName || '';
+                if(addressEl) addressEl.value = settings.businessAddress || '';
+                if(phoneEl) phoneEl.value = settings.businessPhone || '';
+                if(logoUrlEl) logoUrlEl.value = settings.logoUrl || '';
+                if(upiIdEl) upiIdEl.value = settings.upiId || '';
+                if(upiNameEl) upiNameEl.value = settings.upiName || '';
+
+                if (settings.logoUrl) {
+                    logoPreview.src = settings.logoUrl;
+                    logoPreview.style.display = 'block';
+                } else {
+                    logoPreview.style.display = 'none';
+                }
+                resultDiv.textContent = ''; // Clear loading message
+            } catch (err) {
+                console.error("Error loading business settings:", err);
+                resultDiv.textContent = `Error loading settings: ${err.message}`;
+                resultDiv.className = 'message error';
+            }
+        }
+
+        async function loadBusinessSettingsOnLoad() { // Loads once on page load
+             try {
+                const response = await fetch('/admin/settings', { headers });
+                if (response.ok) {
+                    businessSettings = await response.json();
+                    console.log("Business settings loaded for label:", businessSettings);
+                } else { console.error("Failed to load initial settings for label."); }
+            } catch (err) { console.error("Error loading initial settings for label:", err); }
+        }
+
+        async function handleBusinessSettingsSubmit(e) {
+            e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const resultDiv = document.getElementById('settings-result');
+            const logoPreview = document.getElementById('logo-preview');
+            if(!submitBtn || !resultDiv || !logoPreview) return;
+
+            submitBtn.disabled = true; submitBtn.textContent = 'Saving...';
+            resultDiv.textContent = ''; resultDiv.className = 'message';
+
+            const settingsData = {
+                businessName: document.getElementById('business-name').value,
+                businessAddress: document.getElementById('business-address').value,
+                businessPhone: document.getElementById('business-phone').value,
+                logoUrl: document.getElementById('business-logo-url').value,
+                upiId: document.getElementById('upi-id').value,
+                upiName: document.getElementById('upi-name').value,
+            };
+
+            try {
+                const response = await fetch('/admin/settings', { method: 'PUT', headers, body: JSON.stringify(settingsData) });
+                const data = await response.json();
+                if (response.ok) {
+                    resultDiv.textContent = data.message || 'Settings saved!'; resultDiv.className = 'message success';
+                    // Update global settings variable and logo preview
+                    businessSettings = data.settings || settingsData; // Use response data if available
+                    if (businessSettings.logoUrl) { logoPreview.src = businessSettings.logoUrl; logoPreview.style.display = 'block'; }
+                    else { logoPreview.style.display = 'none'; }
+                } else {
+                    resultDiv.textContent = `Error: ${data.message || 'Save failed.'}`; resultDiv.className = 'message error';
+                }
+            } catch (err) {
+                console.error("Error saving settings:", err);
+                resultDiv.textContent = `Server error: ${err.message}`; resultDiv.className = 'message error';
+            } finally {
+                submitBtn.disabled = false; submitBtn.textContent = 'Save Settings';
+                setTimeout(() => { if(resultDiv) resultDiv.textContent = ''; }, 3000); // Clear after 3s
+            }
+        }
 
     </script>
 
