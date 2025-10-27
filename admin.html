@@ -76,6 +76,15 @@
              #tab-book, .container, #result-area { display: block !important; } /* Ensure container is visible */
              #label { display: block !important; } /* Ensure label itself is visible */
         }
+        #all-deliveries-table input[type="checkbox"] {
+            transform: scale(1.5); /* Increase size by 50% */
+            margin: 0 5px 0 3px; /* Adjust margin if needed */
+            cursor: pointer;
+        }
+        #select-all-checkbox { /* Apply to header checkbox too */
+             transform: scale(1.5);
+             cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -723,21 +732,44 @@
                 combinedLabelsHtml += `
                     <div class="label-print-instance" style="${pageBreakStyle} border: 2px dashed #6c757d; padding: 15px; background: white; width: 95%; margin-bottom: 20px;">
                         {/* Copy the inner structure from generateLabel's innerHTML, using delivery data */}
-                        <style> /* Include scoped styles needed for each label */
-                           .label-grid-container { border: 1.5px solid black; display: grid; grid-template-columns: 60% 40%; grid-template-rows: auto auto auto 1fr; width: 100%; font-family: Arial, sans-serif; font-size: 10pt; background: white; }
-                           .label-grid-container div { padding: 6px 8px; border-bottom: 1px solid black; border-right: 1px solid black; box-sizing: border-box; word-wrap: break-word; }
-                           .label-grid-container div:nth-child(2n) { border-right: none; }
-                           .label-grid-container div:nth-last-child(-n+2) { border-bottom: none; }
-                           .grid-header { font-weight: bold; background-color: #f0f0f0; }
-                           .grid-ship-to { grid-column: 1 / 2; grid-row: 2 / 3; }
-                           .grid-from { grid-column: 2 / 3; grid-row: 2 / 3; }
-                           .grid-order-id { grid-column: 1 / 2; grid-row: 3 / 4; }
-                           .grid-remarks { grid-column: 2 / 3; grid-row: 3 / 4; }
-                           .grid-qr-code { grid-column: 1 / 3; grid-row: 4 / 5; text-align: center; padding-top: 15px; padding-bottom: 5px; border-top: 1.5px solid black; }
-                           .grid-qr-code .qr-code-img img { display: block; margin: 0 auto 5px auto; } /* Target generated img */
-                           .grid-qr-code small { font-size: 8pt; font-weight: bold; letter-spacing: 1px; display: block; }
-                           .label-grid-container p { margin: 2px 0; padding: 0; }
-                        </style>
+                       <style>
+                        body {
+                            margin: 5mm; /* Reduce body margin */
+                        }
+                        .label-print-instance {
+                            page-break-before: always;
+                            margin: 0 0 10mm 0 !important; /* Remove horizontal margin, add bottom margin */
+                            border: none !important; /* Remove the dashed border for print */
+                            width: 100% !important; /* Use full available width */
+                            box-shadow: none !important;
+                            padding: 0 !important; /* Remove padding around the label container */
+                        }
+                        .label-print-instance:first-child {
+                            page-break-before: avoid;
+                            margin-top: 0 !important; /* No top margin for the first label */
+                        }
+                        /* Styles for the grid itself */
+                        .label-grid-container {
+                            border: 1.5px solid black !important; /* Ensure border prints */
+                            font-size: 9pt !important; /* Slightly smaller font */
+                            width: 100% !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                             /* Add other grid styles if needed */
+                        }
+                         .label-grid-container div {
+                             padding: 4px 6px !important; /* Reduce cell padding */
+                         }
+                        #qrcode-tracking img { /* Make QR slightly smaller */
+                            width: 90px !important;
+                            height: 90px !important;
+                        }
+                        @media print {
+                            body { margin: 0; } /* Remove body margin for print */
+                             -webkit-print-color-adjust: exact; /* Force colors/borders */
+                             print-color-adjust: exact;
+                        }
+                    </style>
                         <div class="label-grid-container">
                             <div class="grid-header">SHIP TO:</div> <div class="grid-header">FROM:</div>
                             <div class="grid-ship-to"><p><strong>${delivery.customerName||'N/A'}</strong></p><p>${delivery.customerAddress||'N/A'}</p><p>Ph: ${delivery.customerPhone||'N/A'}</p></div>

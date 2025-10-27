@@ -1,4 +1,4 @@
-// --- Sahyog Medical Delivery Backend (server.js) - v6.1 (Admin->Manager Workflow) ---
+// --- Sahyog Medical Delivery Backend (server.js) - v6.1 (Admin->Manager Workflow - COMPLETE & EXPANDED) ---
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -46,7 +46,6 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 const User = mongoose.model('User', userSchema);
 
-
 // 4.2. Delivery Schema
 const deliverySchema = new mongoose.Schema({
     customerName: String,
@@ -77,7 +76,7 @@ deliverySchema.virtual('currentStatus').get(function() {
 deliverySchema.set('toJSON', { virtuals: true });
 const Delivery = mongoose.model('Delivery', deliverySchema);
 
-// 4.3. Business Settings Schema
+// 4.3 Business Settings Schema
 const BusinessSettingsSchema = new mongoose.Schema({
     businessName: { type: String, default: 'Sahyog Medical' },
     businessAddress: { type: String, default: 'Your Business Address, City, State, Country, PIN' },
@@ -87,8 +86,8 @@ const BusinessSettingsSchema = new mongoose.Schema({
     upiName: { type: String, default: '' },
     createdAt: { type: Date, default: Date.now }
 });
-
 const BusinessSettings = mongoose.model('BusinessSettings', BusinessSettingsSchema);
+
 
 // --- 5. Auth APIs ---
 
@@ -96,15 +95,26 @@ const BusinessSettings = mongoose.model('BusinessSettings', BusinessSettingsSche
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const user = await User.findOne({ email: email.toLowerCase() });
-        if (!user) return res.status(404).json({ message: 'User not found' });
-        if (!user.isActive) return res.status(403).json({ message: 'User account is deactivated' });
+        const user = await User.findOne({ email: email.toLowerCase() }); // Case-insensitive
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        // Check if user is active
+        if (!user.isActive) {
+            return res.status(403).json({ message: 'User account is deactivated' });
+        }
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ message: 'Invalid password' });
-        const token = jwt.sign({ userId: user._id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '3d' });
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Invalid password' });
+        }
+        const token = jwt.sign(
+            { userId: user._id, role: user.role, name: user.name },
+            JWT_SECRET,
+            { expiresIn: '3d' }
+        );
         res.json({ message: 'Login successful!', token, name: user.name, role: user.role });
     } catch (error) {
-         console.error("Login Error:", error);
+         console.error("Login Error:", error); // Log the actual error
          res.status(500).json({ message: 'Server error during login' });
     }
 });
@@ -113,18 +123,33 @@ app.post('/login', async (req, res) => {
 const auth = (roles = []) => {
     return (req, res, next) => {
         try {
-            const token = req.headers.authorization.split(' ')[1];
+            // Check if authorization header exists
+            if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
+                return res.status(401).json({ message: 'Authentication failed: No token provided' });
+            }
+            const token = req.headers.authorization.split(' ')[1]; // "Bearer TOKEN"
             const decoded = jwt.verify(token, JWT_SECRET);
-            req.user = decoded;
+            req.user = decoded; // { userId, role, name }
+
+            // Check if user role is allowed for this route
             if (roles.length > 0 && !roles.includes(decoded.role)) {
                 return res.status(403).json({ message: 'Forbidden: Insufficient role' });
             }
-            next();
+            next(); // Proceed to the next middleware or route handler
         } catch (error) {
-            res.status(401).json({ message: 'Authentication failed: Invalid token' });
+            // Handle specific JWT errors like expiration or invalid signature
+            if (error.name === 'TokenExpiredError') {
+                 res.status(401).json({ message: 'Authentication failed: Token expired' });
+            } else if (error.name === 'JsonWebTokenError') {
+                 res.status(401).json({ message: 'Authentication failed: Invalid token signature' });
+            } else {
+                 console.error("Auth Middleware Error:", error); // Log unexpected errors
+                 res.status(401).json({ message: 'Authentication failed: Invalid token' });
+            }
         }
     };
 };
+
 
 // --- 6. HTML Page Routes ---
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -138,30 +163,39 @@ app.get('/service-worker.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'service-worker.js'));
 });
 
+
 // --- 7. Admin API Routes ---
 
 // 7.1. Book Courier (Assigns to Manager)
 app.post('/book', auth(['admin']), async (req, res) => {
     try {
         const { name, address, phone, paymentMethod, billAmount, managerId } = req.body; // Expect managerId
+        if (!name || !address) { // Basic validation
+             return res.status(400).json({ message: 'Customer Name and Address are required.' });
+        }
         const otp = Math.floor(1000 + Math.random() * 9000).toString();
         const trackingId = 'SAHYOG-' + Date.now().toString().slice(-6);
 
         const newDelivery = new Delivery({
             customerName: name, customerAddress: address, customerPhone: phone,
             trackingId: trackingId, otp: otp,
-            paymentMethod: paymentMethod, billAmount: billAmount,
-            assignedTo: null, // Boy not assigned yet
-            assignedByManager: managerId || null, // Store the manager it's assigned to
+            paymentMethod: paymentMethod, billAmount: billAmount || 0, // Ensure billAmount is a number
+            assignedTo: null,
+            assignedByManager: managerId || null,
             assignedBoyDetails: null,
             statusUpdates: [{ status: 'Booked' }],
             codPaymentStatus: (paymentMethod === 'Prepaid') ? 'Not Applicable' : 'Pending'
         });
         await newDelivery.save();
-        res.json({ message: 'कूरियर बुक हो गया!', trackingId: trackingId, otp: otp });
+        res.status(201).json({ message: 'Courier booked successfully!', trackingId: trackingId, otp: otp }); // Use 201 for creation
     } catch (error) {
          console.error("Booking Error:", error);
-         res.status(500).json({ message: 'Booking failed', error: error.message });
+         // Provide more specific error if possible (e.g., validation error)
+         if (error.name === 'ValidationError') {
+             res.status(400).json({ message: 'Booking validation failed', errors: error.errors });
+         } else {
+             res.status(500).json({ message: 'Booking failed due to server error', error: error.message });
+         }
     }
 });
 
@@ -182,7 +216,7 @@ app.get('/admin/deliveries', auth(['admin']), async (req, res) => {
 // 7.3. Get All Users
 app.get('/admin/users', auth(['admin']), async (req, res) => {
     try {
-        const users = await User.find({}, '-password')
+        const users = await User.find({}, '-password') // Exclude password field
                           .populate('createdByManager', 'name')
                           .sort({ role: 1, name: 1 });
         res.json(users);
@@ -196,17 +230,26 @@ app.get('/admin/users', auth(['admin']), async (req, res) => {
 app.post('/admin/create-user', auth(['admin']), async (req, res) => {
     try {
         const { name, email, password, phone, role } = req.body;
-        if (!name || !email || !password || !role) return res.status(400).json({ message: 'Name, Email, Password, Role required' });
-        if (!['admin', 'manager', 'delivery'].includes(role)) return res.status(400).json({ message: 'Invalid role' });
-        const existingUser = await User.findOne({ email: email.toLowerCase() });
-        if (existingUser) return res.status(409).json({ message: 'Email already exists' });
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({ name, email: email.toLowerCase(), password: hashedPassword, phone, role, createdByManager: null });
+        if (!name || !email || !password || !role || !['admin', 'manager', 'delivery'].includes(role)) {
+            return res.status(400).json({ message: 'Valid Name, Email, Password, Role required' });
+        }
+        const lowerCaseEmail = email.toLowerCase();
+        const existingUser = await User.findOne({ email: lowerCaseEmail });
+        if (existingUser) {
+            return res.status(409).json({ message: 'Email already exists' });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10); // Use salt rounds
+        const newUser = new User({ name, email: lowerCaseEmail, password: hashedPassword, phone, role, createdByManager: null });
         await newUser.save();
+        // Return only necessary info
         res.status(201).json({ message: `${role} user created!`, user: { _id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role } });
     } catch (error) {
          console.error("Create User Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
+         if (error.code === 11000) { // Handle duplicate key error specifically
+             res.status(409).json({ message: 'Email already exists (DB constraint).' });
+         } else {
+             res.status(500).json({ message: 'Server error during user creation', error: error.message });
+         }
     }
 });
 
@@ -215,16 +258,26 @@ app.put('/admin/user/:userId', auth(['admin']), async (req, res) => {
     try {
         const { userId } = req.params;
         const { name, email, phone, role } = req.body;
-        if (!name || !email || !role) return res.status(400).json({ message: 'Name, Email, Role required' });
-        if (!['admin', 'manager', 'delivery'].includes(role)) return res.status(400).json({ message: 'Invalid role' });
+        if (!name || !email || !role || !['admin', 'manager', 'delivery'].includes(role)) {
+             return res.status(400).json({ message: 'Valid Name, Email, Role required' });
+        }
         const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-        user.name = name; user.email = email.toLowerCase(); user.phone = phone; user.role = role;
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        user.name = name;
+        user.email = email.toLowerCase();
+        user.phone = phone;
+        user.role = role;
         await user.save();
         res.json({ message: 'User updated successfully' });
     } catch (error) {
          console.error("Update User Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
+         if (error.code === 11000) {
+             res.status(409).json({ message: 'Email already exists for another user.' });
+         } else {
+             res.status(500).json({ message: 'Server error updating user', error: error.message });
+         }
     }
 });
 
@@ -233,13 +286,18 @@ app.patch('/admin/user/:userId/password', auth(['admin']), async (req, res) => {
      try {
         const { userId } = req.params;
         const { password } = req.body;
-        if (!password || password.length < 6) return res.status(400).json({ message: 'New password required (min 6 chars)' });
+        if (!password || password.length < 6) {
+            return res.status(400).json({ message: 'New password required (min 6 chars)' });
+        }
         const hashedPassword = await bcrypt.hash(password, 10);
-        await User.findByIdAndUpdate(userId, { password: hashedPassword });
+        const result = await User.findByIdAndUpdate(userId, { password: hashedPassword });
+        if (!result) {
+            return res.status(404).json({ message: 'User not found' });
+        }
         res.json({ message: 'Password updated successfully' });
     } catch (error) {
          console.error("Update Password Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
+         res.status(500).json({ message: 'Server error updating password', error: error.message });
     }
 });
 
@@ -248,13 +306,15 @@ app.patch('/admin/user/:userId/toggle-active', auth(['admin']), async (req, res)
     try {
         const { userId } = req.params;
         const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
         user.isActive = !user.isActive;
         await user.save();
         res.json({ message: `User ${user.isActive ? 'activated' : 'deactivated'}` });
     } catch (error) {
          console.error("Toggle Active Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
+         res.status(500).json({ message: 'Server error toggling status', error: error.message });
     }
 });
 
@@ -263,7 +323,9 @@ app.patch('/admin/delivery/:deliveryId/cancel', auth(['admin']), async (req, res
     try {
         const { deliveryId } = req.params;
         const delivery = await Delivery.findById(deliveryId);
-        if (!delivery) return res.status(404).json({ message: 'Delivery not found' });
+        if (!delivery) {
+            return res.status(404).json({ message: 'Delivery not found' });
+        }
         if (!['Delivered', 'Cancelled'].includes(delivery.currentStatus)) {
             delivery.statusUpdates.push({ status: 'Cancelled' });
             delivery.codPaymentStatus = 'Not Applicable';
@@ -274,7 +336,7 @@ app.patch('/admin/delivery/:deliveryId/cancel', auth(['admin']), async (req, res
         }
     } catch (error) {
          console.error("Cancel Delivery Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
+         res.status(500).json({ message: 'Server error cancelling delivery', error: error.message });
     }
 });
 
@@ -283,11 +345,46 @@ app.delete('/admin/delivery/:deliveryId', auth(['admin']), async (req, res) => {
     try {
         const { deliveryId } = req.params;
         const result = await Delivery.findByIdAndDelete(deliveryId);
-        if (!result) return res.status(404).json({ message: 'Delivery not found' });
+        if (!result) {
+            return res.status(404).json({ message: 'Delivery not found' });
+        }
         res.json({ message: 'Delivery deleted successfully' });
     } catch (error) {
          console.error("Delete Delivery Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
+         res.status(500).json({ message: 'Server error deleting delivery', error: error.message });
+    }
+});
+
+// 7.10. Bulk Cancel Deliveries
+app.post('/admin/deliveries/bulk-cancel', auth(['admin']), async (req, res) => {
+    try {
+        const { deliveryIds } = req.body;
+        if (!deliveryIds || !Array.isArray(deliveryIds) || deliveryIds.length === 0) {
+            return res.status(400).json({ message: 'No delivery IDs provided.' });
+        }
+        const result = await Delivery.updateMany(
+            { _id: { $in: deliveryIds }, 'statusUpdates.status': { $nin: ['Delivered', 'Cancelled'] } },
+            { $push: { statusUpdates: { status: 'Cancelled' } }, $set: { codPaymentStatus: 'Not Applicable' } }
+        );
+        res.json({ message: `Attempted cancel on ${deliveryIds.length}. Updated: ${result.modifiedCount}.`, cancelledCount: result.modifiedCount });
+    } catch (error) {
+        console.error("Bulk Cancel Error:", error);
+        res.status(500).json({ message: 'Bulk cancel failed', error: error.message });
+    }
+});
+
+// 7.11. Bulk Delete Deliveries
+app.post('/admin/deliveries/bulk-delete', auth(['admin']), async (req, res) => {
+    try {
+        const { deliveryIds } = req.body;
+        if (!deliveryIds || !Array.isArray(deliveryIds) || deliveryIds.length === 0) {
+            return res.status(400).json({ message: 'No delivery IDs provided.' });
+        }
+        const result = await Delivery.deleteMany({ _id: { $in: deliveryIds } });
+        res.json({ message: `Attempted delete for ${deliveryIds.length}. Deleted: ${result.deletedCount}.`, deletedCount: result.deletedCount });
+    } catch (error) {
+        console.error("Bulk Delete Error:", error);
+        res.status(500).json({ message: 'Bulk delete failed', error: error.message });
     }
 });
 
@@ -303,7 +400,7 @@ app.get('/manager/assigned-pickups', auth(['manager']), async (req, res) => {
         }).sort({ createdAt: 1 });
         res.json(deliveries);
     } catch (error) {
-         console.error("Fetch Assigned Pickups Error:", error); // <-- Ensure this log exists
+         console.error("Fetch Assigned Pickups Error:", error);
          res.status(500).json({ message: 'Error fetching assigned pickups' });
     }
 });
@@ -314,7 +411,7 @@ app.get('/manager/my-boys', auth(['manager']), async (req, res) => {
         const users = await User.find({ role: 'delivery', createdByManager: req.user.userId }, 'name email _id isActive phone');
         res.json(users);
     } catch (error) {
-         console.error("Fetch My Boys Error:", error); // <-- Ensure this log exists
+         console.error("Fetch My Boys Error:", error);
          res.status(500).json({ message: 'Error fetching delivery boys' });
     }
 });
@@ -324,15 +421,20 @@ app.post('/manager/create-delivery-boy', auth(['manager']), async (req, res) => 
     try {
         const { name, email, password, phone } = req.body;
         if (!name || !email || !password) return res.status(400).json({ message: 'Name, Email, Password required' });
-        const existingUser = await User.findOne({ email: email.toLowerCase() });
+        const lowerCaseEmail = email.toLowerCase();
+        const existingUser = await User.findOne({ email: lowerCaseEmail });
         if (existingUser) return res.status(409).json({ message: 'Email already exists' });
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({ name, email: email.toLowerCase(), password: hashedPassword, phone, role: 'delivery', createdByManager: req.user.userId });
+        const newUser = new User({ name, email: lowerCaseEmail, password: hashedPassword, phone, role: 'delivery', createdByManager: req.user.userId });
         await newUser.save();
         res.status(201).json({ message: 'Delivery boy created!', user: { _id: newUser._id, name: newUser.name, email: newUser.email } });
     } catch (error) {
          console.error("Manager Create Boy Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
+         if (error.code === 11000) {
+             res.status(409).json({ message: 'Email already exists (DB constraint).' });
+         } else {
+             res.status(500).json({ message: 'Server error', error: error.message });
+         }
     }
 });
 
@@ -345,10 +447,7 @@ app.patch('/manager/assign-delivery/:deliveryId', auth(['manager']), async (req,
 
         const delivery = await Delivery.findById(deliveryId);
         if (!delivery) return res.status(404).json({ message: 'Delivery not found' });
-        // Ensure it was assigned to this manager and not yet assigned to a boy
-        if (!delivery.assignedByManager || delivery.assignedByManager.toString() !== req.user.userId) {
-            return res.status(403).json({ message: 'Delivery not assigned to you' });
-        }
+        if (!delivery.assignedByManager || delivery.assignedByManager.toString() !== req.user.userId) return res.status(403).json({ message: 'Delivery not assigned to you' });
         if (delivery.assignedTo) return res.status(400).json({ message: 'Delivery already assigned to a boy' });
 
         const boy = await User.findOne({ _id: assignedBoyId, role: 'delivery', createdByManager: req.user.userId });
@@ -356,7 +455,6 @@ app.patch('/manager/assign-delivery/:deliveryId', auth(['manager']), async (req,
         if (!boy.isActive) return res.status(400).json({ message: 'Cannot assign to inactive delivery boy' });
 
         delivery.assignedTo = boy._id;
-        // assignedByManager remains the same
         delivery.assignedBoyDetails = { name: boy.name, phone: boy.phone };
         delivery.statusUpdates.push({ status: 'Boy Assigned' });
         await delivery.save();
@@ -366,10 +464,10 @@ app.patch('/manager/assign-delivery/:deliveryId', auth(['manager']), async (req,
             webpush.sendNotification(boy.pushSubscription, payload).catch(err => console.error("Push error during assignment:", err));
         }
 
-        res.json({ message: 'Delivery assigned successfully', delivery });
+        res.json({ message: 'Delivery assigned successfully', delivery: { _id: delivery._id, trackingId: delivery.trackingId, currentStatus: delivery.currentStatus } }); // Return limited info
     } catch (error) {
          console.error("Assign Delivery Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
+         res.status(500).json({ message: 'Server error during assignment', error: error.message });
     }
 });
 
@@ -378,153 +476,81 @@ app.patch('/manager/assign-delivery/:deliveryId', auth(['manager']), async (req,
 // 9.1. Get Assigned Deliveries (Pagination)
 app.get('/delivery/my-deliveries', auth(['delivery']), async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = 5;
-        const skip = (page - 1) * limit;
-        const deliveries = await Delivery.find({ assignedTo: req.user.userId, 'statusUpdates.status': { $nin: ['Delivered', 'Cancelled'] } })
-            .sort({ createdAt: 1 }).skip(skip).limit(limit);
-        const totalDeliveries = await Delivery.countDocuments({ assignedTo: req.user.userId, 'statusUpdates.status': { $nin: ['Delivered', 'Cancelled'] } });
+        const page = parseInt(req.query.page) || 1; const limit = 5; const skip = (page - 1) * limit;
+        const filter = { assignedTo: req.user.userId, 'statusUpdates.status': { $nin: ['Delivered', 'Cancelled'] } };
+        const deliveries = await Delivery.find(filter).sort({ createdAt: 1 }).skip(skip).limit(limit);
+        const totalDeliveries = await Delivery.countDocuments(filter);
         res.json({ deliveries, currentPage: page, totalPages: Math.ceil(totalDeliveries / limit), totalDeliveries });
-    } catch (error) {
-         console.error("Fetch Assigned Error:", error);
-         res.status(500).json({ message: 'Error fetching assigned deliveries' });
-    }
+    } catch (error) { console.error("Fetch Assigned Error:", error); res.status(500).json({ message: 'Error fetching assigned deliveries' }); }
 });
 
 // 9.2. Update Status (Scan/Manual)
 app.post('/delivery/update-status', auth(['delivery']), async (req, res) => {
     try {
-        const { trackingId } = req.body;
-        const delivery = await Delivery.findOne({ trackingId: trackingId, assignedTo: req.user.userId });
-        if (!delivery) return res.status(404).json({ message: 'Tracking ID not found or not assigned' });
-        let nextStatus;
-        switch (delivery.currentStatus) {
-            case 'Boy Assigned': nextStatus = 'Picked Up'; break;
-            case 'Booked': nextStatus = 'Picked Up'; break; // Allow pickup even if manager missed assigning step
-            case 'Picked Up': nextStatus = 'Out for Delivery'; break;
-            default: return res.status(400).json({ message: `Delivery is already ${delivery.currentStatus}` });
-        }
-        delivery.statusUpdates.push({ status: nextStatus });
-        await delivery.save();
-        res.json({ trackingId: delivery.trackingId, status: nextStatus });
-    } catch (error) {
-         console.error("Update Status Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
-    }
+        const { trackingId } = req.body; const delivery = await Delivery.findOne({ trackingId: trackingId, assignedTo: req.user.userId }); if (!delivery) return res.status(404).json({ message: 'ID not found/assigned' });
+        let nextStatus; switch (delivery.currentStatus) { case 'Boy Assigned': nextStatus = 'Picked Up'; break; case 'Booked': nextStatus = 'Picked Up'; break; case 'Picked Up': nextStatus = 'Out for Delivery'; break; default: return res.status(400).json({ message: `Already ${delivery.currentStatus}` }); }
+        delivery.statusUpdates.push({ status: nextStatus }); await delivery.save(); res.json({ trackingId: delivery.trackingId, status: nextStatus });
+    } catch (error) { console.error("Update Status Error:", error); res.status(500).json({ message: 'Server error updating status', error: error.message }); }
 });
 
 // 9.3. Complete Delivery (OTP)
 app.post('/delivery/complete', auth(['delivery']), async (req, res) => {
     try {
-        const { trackingId, otp, paymentReceivedMethod } = req.body;
-        const delivery = await Delivery.findOne({ trackingId: trackingId, assignedTo: req.user.userId });
-        if (!delivery) return res.status(404).json({ message: 'Tracking ID not found or not assigned' });
-        if (delivery.currentStatus !== 'Out for Delivery') return res.status(400).json({ message: `Cannot complete. Status is ${delivery.currentStatus}.` });
-        if (delivery.otp !== otp) return res.status(400).json({ message: 'Invalid OTP!' });
-        if (delivery.paymentMethod === 'COD') {
-            if (!paymentReceivedMethod) return res.status(400).json({ message: 'Please select payment (Cash or Online)' });
-            delivery.codPaymentStatus = (paymentReceivedMethod === 'cash') ? 'Paid - Cash' : 'Paid - Online';
-        } else { delivery.codPaymentStatus = 'Not Applicable'; }
-        delivery.statusUpdates.push({ status: 'Delivered' });
-        await delivery.save();
-        res.json({ trackingId: delivery.trackingId, status: 'Delivered' });
-    } catch (error) {
-         console.error("Complete Delivery Error:", error);
-         res.status(500).json({ message: 'Server error', error: error.message });
-    }
+        const { trackingId, otp, paymentReceivedMethod } = req.body; const delivery = await Delivery.findOne({ trackingId: trackingId, assignedTo: req.user.userId });
+        if (!delivery) return res.status(404).json({ message: 'ID not found/assigned' }); if (delivery.currentStatus !== 'Out for Delivery') return res.status(400).json({ message: `Status is ${delivery.currentStatus}.` }); if (delivery.otp !== otp) return res.status(400).json({ message: 'Invalid OTP!' });
+        if (delivery.paymentMethod === 'COD') { if (!paymentReceivedMethod) return res.status(400).json({ message: 'Select payment method' }); delivery.codPaymentStatus = (paymentReceivedMethod === 'cash') ? 'Paid - Cash' : 'Paid - Online'; } else { delivery.codPaymentStatus = 'Not Applicable'; }
+        delivery.statusUpdates.push({ status: 'Delivered' }); await delivery.save(); res.json({ trackingId: delivery.trackingId, status: 'Delivered' });
+    } catch (error) { console.error("Complete Error:", error); res.status(500).json({ message: 'Server error completing delivery', error: error.message }); }
 });
 
 // 9.4. Subscribe to Push
 app.post('/subscribe', auth(['delivery']), async (req, res) => {
-    try {
-        await User.findByIdAndUpdate(req.user.userId, { pushSubscription: req.body });
-        res.status(201).json({ message: 'Subscription saved' });
-    } catch (error) {
-         console.error("Subscribe Error:", error);
-         res.status(500).json({ message: 'Failed to save subscription' });
-    }
+    try { await User.findByIdAndUpdate(req.user.userId, { pushSubscription: req.body }); res.status(201).json({ message: 'Subscribed' }); }
+    catch (error) { console.error("Subscribe Error:", error); res.status(500).json({ message: 'Failed to save subscription' }); }
 });
 
 // --- 10. Public API Routes ---
 
 // 10.1. Track
 app.get('/track/:trackingId', async (req, res) => {
-    try {
-        const delivery = await Delivery.findOne({ trackingId: req.params.trackingId })
-                                       .populate('assignedTo', 'name phone'); // Try populating boy
-        if (!delivery) return res.status(404).json({ message: 'यह ट्रैकिंग ID नहीं मिला' });
-        let boyDetails = delivery.assignedBoyDetails; // Use stored details by default
-        if (delivery.assignedTo && delivery.assignedTo.name) { // Overwrite if population worked
-             boyDetails = { name: delivery.assignedTo.name, phone: delivery.assignedTo.phone };
-        }
-        res.json({
-            trackingId: delivery.trackingId, customerName: delivery.customerName, statusUpdates: delivery.statusUpdates,
-            paymentMethod: delivery.paymentMethod, billAmount: delivery.billAmount, currentStatus: delivery.currentStatus,
-            assignedBoyDetails: boyDetails
-        });
-    } catch (error) {
-         console.error("Track Error:", error);
-         res.status(500).json({ message: 'Tracking lookup failed' });
-    }
+    try { const delivery = await Delivery.findOne({ trackingId: req.params.trackingId }).populate('assignedTo', 'name phone'); if (!delivery) return res.status(404).json({ message: 'ID not found' });
+        let boyDetails = delivery.assignedBoyDetails; if (delivery.assignedTo && delivery.assignedTo.name) { boyDetails = { name: delivery.assignedTo.name, phone: delivery.assignedTo.phone }; }
+        res.json({ trackingId: delivery.trackingId, customerName: delivery.customerName, statusUpdates: delivery.statusUpdates, paymentMethod: delivery.paymentMethod, billAmount: delivery.billAmount, currentStatus: delivery.currentStatus, assignedBoyDetails: boyDetails });
+    } catch (error) { console.error("Track Error:", error); res.status(500).json({ message: 'Tracking lookup failed' }); }
 });
 // 10.2. Get VAPID Key
 app.get('/vapid-public-key', (req, res) => res.send(VAPID_PUBLIC_KEY));
 
-// --- 11. Start Server ---
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`सर्वर ${PORT} पर चल रहा है`));
-
-// 12. Business Settings Management (Admin Only)
+// --- 11. Business Settings Management (Admin Only) ---
 // Get business settings
 app.get('/admin/settings', auth(['admin']), async (req, res) => {
     try {
-        // Find the single settings document, create if it doesn't exist
-        let settings = await BusinessSettings.findOne();
-        if (!settings) {
-            settings = await BusinessSettings.create({}); // Create with defaults
-        }
-        res.json(settings);
-    } catch (error) {
-        console.error('Error fetching business settings:', error);
-        res.status(500).json({ message: 'Error fetching business settings' });
-    }
+        let settings = await BusinessSettings.findOne(); if (!settings) { settings = await BusinessSettings.create({}); } res.json(settings);
+    } catch (error) { console.error('Error fetching settings:', error); res.status(500).json({ message: 'Error fetching settings' }); }
 });
-
 // Update business settings
 app.put('/admin/settings', auth(['admin']), async (req, res) => {
     try {
         const { businessName, businessAddress, businessPhone, logoUrl, upiId, upiName } = req.body;
-        // Find and update the single settings document, create if it doesn't exist
-        const updatedSettings = await BusinessSettings.findOneAndUpdate(
-            {}, // Empty filter to find the single document
-            { businessName, businessAddress, businessPhone, logoUrl, upiId, upiName },
-            { new: true, upsert: true, setDefaultsOnInsert: true } // Return updated doc, create if not found, use defaults
-        );
-        res.json({ message: 'Business settings updated successfully!', settings: updatedSettings });
-    } catch (error) {
-        console.error('Error updating business settings:', error);
-        res.status(500).json({ message: 'Error updating business settings' });
-    }
+        const updatedSettings = await BusinessSettings.findOneAndUpdate({}, { businessName, businessAddress, businessPhone, logoUrl, upiId, upiName }, { new: true, upsert: true, setDefaultsOnInsert: true });
+        res.json({ message: 'Settings updated!', settings: updatedSettings });
+    } catch (error) { console.error('Error updating settings:', error); res.status(500).json({ message: 'Error updating settings' }); }
 });
 
-// --- 13. Create Admin User (one-time) ---
-async function createAdminUser() {
-    try {
-        const adminEmail = 'sahyogmns';
-        const adminPass = 'passsahyogmns';
-        let admin = await User.findOne({ email: adminEmail });
-        if (!admin) {
-            const hashedPassword = await bcrypt.hash(adminPass, 12);
-            admin = new User({ name: 'Sahyog Admin', email: adminEmail, password: hashedPassword, role: 'admin', isActive: true });
-            await admin.save();
-            console.log('--- ADMIN USER CREATED ---');
-            console.log(`Username: ${adminEmail}`);
-            console.log(`Password: ${adminPass}`);
-            console.log('---------------------------');
-        } else {
-            if (!admin.isActive) { admin.isActive = true; await admin.save(); console.log(`Admin user ${adminEmail} reactivated.`); }
-            else { console.log('Admin user already exists and is active.'); }
-        }
-    } catch (error) { console.error('Error during initial admin user setup:', error); }
+// --- 12. Start Server ---
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`सर्वर ${PORT} पर चल रहा है`));
+
+// --- 13. Create Admin User & Default Settings (one-time) ---
+async function initialSetup() {
+    // Admin User
+    try { const adminEmail = 'sahyogmns', adminPass = 'passsahyogmns'; let admin = await User.findOne({ email: adminEmail });
+        if (!admin) { const hp = await bcrypt.hash(adminPass, 12); admin = new User({ name: 'Sahyog Admin', email: adminEmail, password: hp, role: 'admin', isActive: true }); await admin.save(); console.log(`--- ADMIN CREATED --- User: ${adminEmail}, Pass: ${adminPass}`); }
+        else { if (!admin.isActive) { admin.isActive = true; await admin.save(); console.log(`Admin ${adminEmail} reactivated.`); } else { console.log('Admin exists & active.'); } }
+    } catch (e) { console.error('Admin setup error:', e); }
+
+    // Default Settings
+    try { const defaultSettings = await BusinessSettings.findOne(); if (!defaultSettings) { await BusinessSettings.create({}); console.log('Default business settings created.'); } }
+    catch (e) { console.error('Default settings check/create error:', e); }
 }
-setTimeout(createAdminUser, 5000); // Increased delay
+setTimeout(initialSetup, 5000); // Run setup after 5 seconds
