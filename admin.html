@@ -400,7 +400,7 @@
                     if (d.paymentMethod === 'COD') { codStatusText = d.codPaymentStatus || 'Pending'; }
 
                     row.innerHTML = `
-                        <td><input type="checkbox" class="delivery-checkbox" value="${d._id}"></td> {/* Checkbox Cell */}
+                        <td><input type="checkbox" class="delivery-checkbox" value="${d._id}"></td> 
                         <td>${d.trackingId || 'N/A'}</td>
                         <td>${d.customerName || 'N/A'}</td>
                         <td><strong>${d.currentStatus || 'N/A'}</strong></td>
