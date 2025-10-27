@@ -389,37 +389,52 @@
                 }
 
                 deliveries.forEach(d => {
-                    const row = tbody.insertRow();
+                    const row = tbody.insertRow(); // Create a new row
                     row.style.verticalAlign = 'middle';
 
-                    // Cell 0: Checkbox
-                    const cellCheckbox = row.insertCell();
+                    // Cell 0: Checkbox (Ensure this is created first)
+                    const cellCheckbox = row.insertCell(0); // Explicitly insert at index 0
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.className = 'delivery-checkbox';
                     checkbox.value = d._id;
                     cellCheckbox.appendChild(checkbox);
+                    cellCheckbox.style.width = '30px'; // Optional: Give it a small width
 
                     // Cell 1: Tracking ID
-                    row.insertCell().textContent = d.trackingId || 'N/A';
+                    row.insertCell(1).textContent = d.trackingId || 'N/A';
+
                     // Cell 2: Customer
-                    row.insertCell().textContent = d.customerName || 'N/A';
+                    row.insertCell(2).textContent = d.customerName || 'N/A';
+
                     // Cell 3: Status
-                    const cellStatus = row.insertCell(); cellStatus.innerHTML = `<strong>${d.currentStatus || 'N/A'}</strong>`;
+                    const cellStatus = row.insertCell(3);
+                    cellStatus.innerHTML = `<strong>${d.currentStatus || 'N/A'}</strong>`;
+
                     // Cell 4: Payment
-                    row.insertCell().textContent = d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid';
+                    row.insertCell(4).textContent = d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid';
+
                     // Cell 5: COD Status
-                    let codStatusText = 'N/A'; if (d.paymentMethod === 'COD') { codStatusText = d.codPaymentStatus || 'Pending'; } row.insertCell().textContent = codStatusText;
+                    let codStatusText = 'N/A';
+                    if (d.paymentMethod === 'COD') { codStatusText = d.codPaymentStatus || 'Pending'; }
+                    row.insertCell(5).textContent = codStatusText;
+
                     // Cell 6: Assigned Manager
-                    row.insertCell().textContent = d.assignedByManager && d.assignedByManager.name ? d.assignedByManager.name : 'N/A';
+                    row.insertCell(6).textContent = d.assignedByManager && d.assignedByManager.name ? d.assignedByManager.name : 'N/A';
+
                     // Cell 7: Assigned Boy
-                    row.insertCell().textContent = d.assignedTo && d.assignedTo.name ? d.assignedTo.name : (d.assignedBoyDetails && d.assignedBoyDetails.name ? d.assignedBoyDetails.name + ' (Assigned)' : 'N/A');
+                    row.insertCell(7).textContent = d.assignedTo && d.assignedTo.name ? d.assignedTo.name : (d.assignedBoyDetails && d.assignedBoyDetails.name ? d.assignedBoyDetails.name + ' (Assigned)' : 'N/A');
+
                     // Cell 8: OTP
-                    const cellOtp = row.insertCell(); cellOtp.innerHTML = `<strong>${d.otp || 'N/A'}</strong>`;
+                    const cellOtp = row.insertCell(8);
+                    cellOtp.innerHTML = `<strong>${d.otp || 'N/A'}</strong>`;
+
                     // Cell 9: Date
-                    const date = new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric'}); row.insertCell().textContent = date;
+                    const date = new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric'});
+                    row.insertCell(9).textContent = date;
+
                     // Cell 10: Actions
-                    const cellActions = row.insertCell();
+                    const cellActions = row.insertCell(10);
                     const isCancelable = !['Delivered', 'Cancelled'].includes(d.currentStatus);
                     cellActions.innerHTML = `
                         <button class="btn-secondary btn-sm" onclick="reprintLabel('${d._id}')" title="Reprint Label">Reprint</button>
