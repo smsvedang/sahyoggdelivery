@@ -696,15 +696,122 @@
             updateSelectionCount();
         }
 
-        // --- 13. Bulk Action Handlers ---
+       // --- 13. Bulk Action Handlers ---
         function handleBulkReprint(){
-            const ids=getSelectedDeliveryIds();
-            if(ids.length===0){ alert("Please select deliveries to reprint."); return; }
-            console.log("Reprinting labels for IDs:", ids);
-            ids.forEach(id=>reprintLabel(id));
-            // Deselect after action is optional
-            // document.querySelectorAll('.delivery-checkbox:checked').forEach(cb => cb.checked = false);
-            // updateSelectionCount();
+            const ids = getSelectedDeliveryIds();
+            if(ids.length === 0){ alert("Please select deliveries to reprint."); return; }
+            console.log("Generating bulk print for IDs:", ids);
+
+            let combinedLabelsHtml = '';
+            let qrCodePromises = []; // To track QR code generation
+
+            ids.forEach((id, index) => {
+                const delivery = allDeliveriesData.find(d => d._id === id);
+                if (!delivery) {
+                    console.warn(`Delivery data not found for ID: ${id}`);
+                    return; // Skip if data is missing
+                }
+
+                // --- Generate HTML for one label ---
+                const logoHtml = businessSettings.logoUrl ? `<img src="${businessSettings.logoUrl}" alt="Logo" style="max-height:40px;max-width:120px;margin-bottom:5px;">` : `<strong>${businessSettings.businessName||'Sahyog'}</strong>`;
+                // Use a unique ID for each QR placeholder in the combined view
+                const qrPlaceholderId = `bulk-qr-${id}`;
+
+                // Add page break style *before* the next label (except the first one)
+                const pageBreakStyle = index > 0 ? 'page-break-before: always; margin-top: 20px;' : '';
+
+                combinedLabelsHtml += `
+                    <div class="label-print-instance" style="${pageBreakStyle} border: 2px dashed #6c757d; padding: 15px; background: white; width: 95%; margin-bottom: 20px;">
+                        {/* Copy the inner structure from generateLabel's innerHTML, using delivery data */}
+                        <style> /* Include scoped styles needed for each label */
+                           .label-grid-container { border: 1.5px solid black; display: grid; grid-template-columns: 60% 40%; grid-template-rows: auto auto auto 1fr; width: 100%; font-family: Arial, sans-serif; font-size: 10pt; background: white; }
+                           .label-grid-container div { padding: 6px 8px; border-bottom: 1px solid black; border-right: 1px solid black; box-sizing: border-box; word-wrap: break-word; }
+                           .label-grid-container div:nth-child(2n) { border-right: none; }
+                           .label-grid-container div:nth-last-child(-n+2) { border-bottom: none; }
+                           .grid-header { font-weight: bold; background-color: #f0f0f0; }
+                           .grid-ship-to { grid-column: 1 / 2; grid-row: 2 / 3; }
+                           .grid-from { grid-column: 2 / 3; grid-row: 2 / 3; }
+                           .grid-order-id { grid-column: 1 / 2; grid-row: 3 / 4; }
+                           .grid-remarks { grid-column: 2 / 3; grid-row: 3 / 4; }
+                           .grid-qr-code { grid-column: 1 / 3; grid-row: 4 / 5; text-align: center; padding-top: 15px; padding-bottom: 5px; border-top: 1.5px solid black; }
+                           .grid-qr-code .qr-code-img img { display: block; margin: 0 auto 5px auto; } /* Target generated img */
+                           .grid-qr-code small { font-size: 8pt; font-weight: bold; letter-spacing: 1px; display: block; }
+                           .label-grid-container p { margin: 2px 0; padding: 0; }
+                        </style>
+                        <div class="label-grid-container">
+                            <div class="grid-header">SHIP TO:</div> <div class="grid-header">FROM:</div>
+                            <div class="grid-ship-to"><p><strong>${delivery.customerName||'N/A'}</strong></p><p>${delivery.customerAddress||'N/A'}</p><p>Ph: ${delivery.customerPhone||'N/A'}</p></div>
+                            <div class="grid-from">${logoHtml}<p>${businessSettings.businessAddress||'N/A'}</p><p>Ph: ${businessSettings.businessPhone||'N/A'}</p></div>
+                            <div class="grid-order-id">ORDER ID: <strong>${delivery.trackingId||'N/A'}</strong></div>
+                            <div class="grid-remarks">REMARKS: <strong>${delivery.paymentMethod||'Prepaid'}</strong></div>
+                            <div class="grid-qr-code">
+                                <div id="${qrPlaceholderId}" class="qr-code-img"></div> {/* Unique placeholder */}
+                                <small>TRACK${delivery.trackingId||'N/A'}</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                // Add QR generation task
+                qrCodePromises.push({ id: qrPlaceholderId, text: delivery.trackingId });
+            }); // End of forEach loop
+
+            // --- Open a new window and print ---
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            if (!printWindow) {
+                alert("Please allow popups for this site to print multiple labels.");
+                return;
+            }
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Print Labels</title>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+                    <style>
+                        body { margin: 10px; }
+                        /* Ensure page breaks work */
+                        @media print {
+                            .label-print-instance { page-break-before: always; margin: 5mm !important; border: none !important; }
+                            .label-print-instance:first-child { page-break-before: avoid; }
+                            body { margin: 0; } /* Remove body margin for print */
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${combinedLabelsHtml}
+                    <script>
+                        // Generate QR codes after HTML is loaded in the new window
+                        const qrTasks = ${JSON.stringify(qrCodePromises)};
+                        qrTasks.forEach(task => {
+                            const el = document.getElementById(task.id);
+                            if (el && task.text) {
+                                try {
+                                    new QRCode(el, {
+                                        text: task.text,
+                                        width: 100,
+                                        height: 100,
+                                        correctLevel: QRCode.CorrectLevel.H
+                                    });
+                                } catch (e) {
+                                    console.error("QR Error in print window:", e);
+                                    el.innerHTML = 'QR Error';
+                                }
+                            }
+                        });
+                        // Print after a short delay for QR codes to render
+                        setTimeout(() => {
+                            window.print();
+                            // Optional: Close window after printing, but browsers might block this
+                            // setTimeout(() => window.close(), 1000);
+                        }, 500); // Adjust delay if needed
+                    <\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close(); // Important for some browsers
+
+            // Deselect checkboxes after initiating print
+            document.querySelectorAll('.delivery-checkbox:checked').forEach(cb => cb.checked = false);
+            updateSelectionCount();
         }
         async function handleBulkCancel(){
             const ids=getSelectedDeliveryIds();
@@ -727,14 +834,37 @@
             if(!confirm(`DANGER! Are you sure you want to permanently DELETE ${ids.length} selected delivery records?`)) return;
             console.log("Deleting deliveries:", ids);
              try{
-                const r=await fetch('/admin/deliveries/bulk-delete',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})});
-                const d=await r.json();
-                if(!r.ok) throw new Error(d.message||'Bulk delete failed');
-                alert(`Successfully deleted ${d.deletedCount||ids.length} deliveries.`);
+                // Ensure 'headers' (containing Authorization) is passed
+                const response = await fetch('/admin/deliveries/bulk-delete',{
+                    method:'POST',
+                    headers: headers, // Pass the headers variable
+                    body:JSON.stringify({deliveryIds:ids})
+                });
+
+                // Log status and get raw response text first
+                console.log("Bulk Delete Response Status:", response.status);
+                const responseText = await response.text();
+                console.log("Bulk Delete Raw Response:", responseText);
+
+                let data;
+                try {
+                    data = JSON.parse(responseText); // Try parsing as JSON
+                } catch (parseError) {
+                    // If parsing fails, throw an error with the raw text
+                    throw new Error(`Server returned non-JSON response: ${responseText}`);
+                }
+
+                if(!response.ok) throw new Error(data.message || `Bulk delete failed with status ${response.status}`);
+
+                alert(`Successfully deleted ${data.deletedCount || ids.length} deliveries.`);
                 loadAllDeliveries();
-                const sa=document.getElementById('select-all-checkbox'); if(sa)sa.checked=false;
+                const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;
                 updateSelectionCount();
-            }catch(e){ console.error("Bulk delete:",e); alert(`Error during bulk delete: ${e.message}`); }
+            }catch(e){
+                console.error("Bulk delete error:",e);
+                // Display the actual error message received or caught
+                alert(`Error during bulk delete: ${e.message}`);
+            }
         }
 
     </script>
