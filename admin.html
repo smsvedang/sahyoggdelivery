@@ -59,13 +59,22 @@
         @media print {
             body * { visibility: hidden; }
             #label, #label * { visibility: visible; }
-            #label { position: absolute; left: 0; top: 0; width: 95%; height: auto; border: none; box-shadow: none; margin: 10px; padding: 5px; }
+            #label {
+                position: absolute; left: 0; top: 0; width: 95%; height: auto;
+                /* Keep the border for printing */
+                border: 2px dashed #6c757d !important;
+                box-shadow: none; margin: 10px; padding: 10px; /* Adjust padding if needed */
+                background: white !important; /* Ensure background is white */
+                -webkit-print-color-adjust: exact; /* Force colors/borders in Chrome */
+                print-color-adjust: exact; /* Standard */
+            }
             #label p { margin: 3px 0; font-size: 10pt;}
             #label h3 { font-size: 12pt; margin: 5px 0;}
             #label span { font-size: 10pt; }
             #qrcode-tracking img { width: 100px !important; height: 100px !important; }
              button, .header, .tab-bar, .tab-content:not(#tab-book), #booking-form, #result, #action-buttons, .footer, #manage-users-area, #all-deliveries-table { display: none !important; }
-             #tab-book, .container, #result-area, #label { display: block !important; }
+             #tab-book, .container, #result-area { display: block !important; } /* Ensure container is visible */
+             #label { display: block !important; } /* Ensure label itself is visible */
         }
     </style>
 </head>
@@ -102,9 +111,9 @@
                         <label for="billAmount">Bill Amount (₹):</label>
                         <input type="number" id="billAmount" value="0" min="0">
                     </div>
-                    <label for="assignedTo">Assign To Manager:</label> {/* Corrected Label */}
+                    <label for="assignedTo">Assign To Manager:</label>
                     <select id="assignedTo">
-                        <option value="">Assign to Manager...</option> {/* Corrected Default Text */}
+                        <option value="">Assign to Manager...</option>
                         </select>
                     <button type="submit" id="submit-btn" class="btn-primary">Book Courier</button>
                 </form>
@@ -134,8 +143,9 @@
                         <th>Status</th>
                         <th>Payment</th>
                         <th>COD Status</th>
-                        <th>Assigned Manager</th> {/* Changed Header */}
-                        <th>Assigned Boy</th> {/* New Header */}
+                        <th>Assigned Manager</th>
+                        <th>Assigned Boy</th>
+                        <th>OTP</th> {/* Added OTP Header */}
                         <th>Date</th>
                         <th>Actions</th>
                     </tr>
@@ -233,7 +243,6 @@
             if (!token || role !== 'admin') {
                 localStorage.clear(); window.location.href = '/login'; return;
             }
-
             const adminNameEl = document.getElementById('admin-name');
             const copyrightYearEl = document.getElementById('copyright-year');
             if(adminNameEl) adminNameEl.textContent = localStorage.getItem('userName');
@@ -261,10 +270,11 @@
             if(editUserFormEl) editUserFormEl.addEventListener('submit', handleEditUserSubmit);
 
             // Initial data loads
-            loadManagersForDropdown(); // <-- CORRECTED FUNCTION NAME HERE
+            loadManagersForDropdown();
             loadAllDeliveries();
             // Users loaded when tab clicked
         });
+
         // --- 2. Tab Logic ---
         function openTab(event, tabName) {
             let i, tabcontent, tablinks;
@@ -304,7 +314,7 @@
         async function loadAllDeliveries() {
             const tbody = document.getElementById('all-deliveries-body');
             if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="9">Loading deliveries...</td></tr>'; // Colspan is 9 now
+            tbody.innerHTML = '<tr><td colspan="10">Loading deliveries...</td></tr>'; // Increased colspan to 10
             try {
                 const response = await fetch('/admin/deliveries', { headers });
                 if (response.status === 401) { window.location.href = '/login'; return; }
@@ -313,7 +323,7 @@
                 allDeliveriesData = deliveries;
                 tbody.innerHTML = '';
                 if(deliveries.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No deliveries found.</td></tr>'; return;
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align: center;">No deliveries found.</td></tr>'; return; // Increased colspan
                 }
                 deliveries.forEach(d => {
                     const row = document.createElement('tr');
@@ -328,10 +338,9 @@
                         <td><strong>${d.currentStatus || 'N/A'}</strong></td>
                         <td>${d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid'}</td>
                         <td>${codStatusText}</td>
-                        {/* Assigned Manager */}
                         <td>${d.assignedByManager && d.assignedByManager.name ? d.assignedByManager.name : 'N/A'}</td>
-                        {/* Assigned Delivery Boy */}
                         <td>${d.assignedTo && d.assignedTo.name ? d.assignedTo.name : (d.assignedBoyDetails && d.assignedBoyDetails.name ? d.assignedBoyDetails.name + ' (Assigned)' : 'N/A')}</td>
+                        <td><strong>${d.otp || 'N/A'}</strong></td> {/* Added OTP */}
                         <td>${date}</td>
                         <td>
                             <button class="btn-secondary btn-sm" onclick="reprintLabel('${d._id}')" title="Reprint Label">Reprint</button>
@@ -343,7 +352,7 @@
                 });
             } catch (err) {
                  console.error("Error loading deliveries:", err);
-                 tbody.innerHTML = `<tr><td colspan="9" style="color: red; text-align: center;">Error: ${err.message}</td></tr>`;
+                 tbody.innerHTML = `<tr><td colspan="10" style="color: red; text-align: center;">Error: ${err.message}</td></tr>`; // Increased colspan
             }
         }
 
@@ -364,7 +373,7 @@
                  phone: document.getElementById('phone').value,
                  paymentMethod: document.getElementById('paymentMethod').value,
                  billAmount: document.getElementById('billAmount').value || 0,
-                 managerId: document.getElementById('assignedTo').value || null // Send managerId
+                 managerId: document.getElementById('assignedTo').value || null
              };
 
              try {
@@ -373,7 +382,8 @@
                  if (response.ok) {
                      resultDiv.className = 'success';
                      resultDiv.innerHTML = `<strong>${data.message}</strong><br>Tracking ID: ${data.trackingId} | OTP: ${data.otp}`;
-                     const labelGenerated = generateLabel(formData.name, formData.address, data.trackingId, formData.paymentMethod);
+                     // Pass phone to generateLabel
+                     const labelGenerated = generateLabel(formData.name, formData.address, data.trackingId, formData.paymentMethod, formData.phone);
                      if (labelGenerated) {
                          document.getElementById('action-buttons').style.display = 'block';
                          setupActionButtons(data.trackingId, data.otp, formData.phone);
@@ -450,7 +460,10 @@
                      resultDiv.textContent = data.message; resultDiv.className = 'message success';
                      e.target.reset();
                      loadAllUsers();
-                     loadManagersForDropdown(); // Refresh dropdown too
+                     // Refresh appropriate dropdown based on role created
+                     if (formData.role === 'manager') {
+                         loadManagersForDropdown();
+                     }
                      setTimeout(() => closeModal('add-user-modal'), 1500);
                  } else {
                      resultDiv.textContent = `Error: ${data.message}`; resultDiv.className = 'message error';
@@ -503,7 +516,8 @@
                      if (!responsePass.ok) { const data = await responsePass.json(); throw new Error(data.message || 'Pass update failed'); }
                 }
                 resultDiv.textContent = 'User updated!'; resultDiv.className = 'message success';
-                loadAllUsers(); loadManagersForDropdown();
+                loadAllUsers();
+                loadManagersForDropdown(); // Refresh manager dropdown in case role changed
                 setTimeout(() => closeModal('user-edit-modal'), 1500);
             } catch (err) { console.error("Edit user error:", err); resultDiv.textContent = `Error: ${err.message}`; resultDiv.className = 'message error'; }
         }
@@ -513,7 +527,8 @@
                 const response = await fetch(`/admin/user/${userId}/toggle-active`, { method: 'PATCH', headers });
                  if (!response.ok) { const data = await response.json(); throw new Error(data.message || 'Toggle failed'); }
                  const data = await response.json(); console.log(data.message);
-                 loadAllUsers(); loadManagersForDropdown();
+                 loadAllUsers();
+                 loadManagersForDropdown(); // Refresh dropdown as active status changed
              } catch (err) { console.error("Toggle active error:", err); alert(`Error: ${err.message}`); }
         }
 
@@ -521,7 +536,8 @@
         function reprintLabel(deliveryId) {
             const delivery = allDeliveriesData.find(d => d._id === deliveryId);
             if (!delivery) { alert('Delivery data not found.'); return; }
-            const generated = generateLabel(delivery.customerName, delivery.customerAddress, delivery.trackingId, delivery.paymentMethod);
+            // Pass phone number to label generator
+            const generated = generateLabel(delivery.customerName, delivery.customerAddress, delivery.trackingId, delivery.paymentMethod, delivery.customerPhone);
             if (generated) {
                  const resultArea = document.getElementById('result-area');
                  if(resultArea) resultArea.scrollIntoView({ behavior: 'smooth' });
@@ -548,18 +564,19 @@
         }
 
         // --- 8. Label Generation & Print ---
-        function generateLabel(name, address, trackingId, paymentMethod) {
+        function generateLabel(name, address, trackingId, paymentMethod, phone) { // Added phone param
             const labelDiv = document.getElementById('label');
             if (!labelDiv) { console.error("#label not found!"); return false; }
             labelDiv.innerHTML = `
                 <div id="label-header"><h3>Sahyog Medical</h3><span style="font-weight:bold;">${paymentMethod||'N/A'}</span></div>
                 <p><strong>TO:</strong> ${name||'N/A'}</p>
                 <p><strong>ADDRESS:</strong> ${address||'N/A'}</p>
+                <p><strong>PHONE:</strong> ${phone||'N/A'}</p> {/* Added phone */}
                 <p><strong>TRACKING ID:</strong> ${trackingId||'N/A'}</p>
                 <div style="text-align: center;"><div id="qrcode-tracking"></div><small>Scan to Track/Update</small></div>
-            `; // Changed placeholder ID back
+            `;
             labelDiv.style.display = 'block';
-            const qrElement = labelDiv.querySelector('#qrcode-tracking'); // Use correct ID
+            const qrElement = labelDiv.querySelector('#qrcode-tracking');
             if (qrElement && trackingId) {
                 qrElement.innerHTML = '';
                 try {
@@ -572,8 +589,32 @@
         function setupActionButtons(trackingId, otp, phone) {
             const shareBtn = document.getElementById('share-btn');
             const printBtn = document.getElementById('print-btn');
-            if(shareBtn) shareBtn.onclick = () => { /* share logic */ };
-            if(printBtn) printBtn.onclick = printLabelInternal;
+            if (shareBtn) {
+                shareBtn.onclick = async () => { // Make async
+                    console.log("Share button clicked. Data:", { trackingId, otp });
+                    const shareText = `Thanks for choosing Sahyog Medical!\nYour Tracking ID: ${trackingId}\nYour OTP for delivery: ${otp}\nTrack here: ${window.location.origin}/track`;
+                    if (navigator.share) {
+                        try {
+                            console.log("Trying navigator.share...");
+                            await navigator.share({ title: 'Your Order is Booked!', text: shareText });
+                            console.log('Shared successfully via navigator.share');
+                        } catch (err) {
+                            console.error("Navigator.share failed:", err);
+                            if (navigator.clipboard) {
+                                console.log("Falling back to clipboard...");
+                                try { await navigator.clipboard.writeText(shareText); alert('Tracking details copied!'); }
+                                catch (clipErr) { console.error("Clipboard write failed:", clipErr); alert('Could not copy.'); console.log("Manual Copy:\n", shareText); }
+                            } else { alert('Sharing failed. Details logged.'); console.log("Manual Copy:\n", shareText); }
+                        }
+                    } else if (navigator.clipboard) {
+                        console.log("Trying navigator.clipboard directly...");
+                        try { await navigator.clipboard.writeText(shareText); alert('Tracking details copied!'); }
+                        catch (clipErr) { console.error("Clipboard write failed:", clipErr); alert('Could not copy.'); console.log("Manual Copy:\n", shareText); }
+                    } else { console.log("Sharing not supported."); alert('Sharing not supported. Details logged.'); console.log("Manual Copy:\n", shareText); }
+                };
+            } else { console.error("#share-btn not found!"); }
+            if (printBtn) { printBtn.onclick = printLabelInternal; }
+            else { console.error("#print-btn not found!"); }
         }
         function printLabelInternal() {
              const labelNode = document.getElementById('label');
