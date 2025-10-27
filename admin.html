@@ -136,9 +136,17 @@
         <div class="card" style="min-width: 95%; overflow-x: auto;">
             <h2>All Bookings</h2>
             <button id="refresh-deliveries-btn" class="btn-secondary">Refresh List</button>
+            <div id="bulk-actions" style="margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            <strong>With Selected:</strong>
+            <button id="bulk-reprint-btn" class="btn-secondary btn-sm">Reprint Labels</button>
+            <button id="bulk-cancel-btn" class="btn-warning btn-sm">Cancel Deliveries</button>
+            <button id="bulk-delete-btn" class="btn-danger btn-sm">Delete Records</button>
+            <span id="selection-count" style="margin-left: 10px; font-style: italic;">(0 selected)</span>
+        </div>
             <table id="all-deliveries-table">
                 <thead>
                     <tr>
+                        <th><input type="checkbox" id="select-all-checkbox" title="Select All"></th>
                         <th>Tracking ID</th>
                         <th>Customer</th>
                         <th>Status</th>
@@ -291,6 +299,13 @@
             const addUserFormEl = document.getElementById('add-user-form');
             const editUserFormEl = document.getElementById('edit-user-form');
             const businessSettingsForm = document.getElementById('business-settings-form');
+            // --- Bulk Action Listeners ---
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            const deliveriesTableBody = document.getElementById('all-deliveries-body');
+            const bulkReprintBtn = document.getElementById('bulk-reprint-btn');
+            const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
+            const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+            // -----------------------------
 
             if(refreshBtn) refreshBtn.onclick = loadAllDeliveries;
             if(addUserBtn) addUserBtn.onclick = () => {
@@ -305,6 +320,13 @@
             if(addUserFormEl) addUserFormEl.addEventListener('submit', handleAddUserSubmit);
             if(editUserFormEl) editUserFormEl.addEventListener('submit', handleEditUserSubmit);
             if(businessSettingsForm) businessSettingsForm.addEventListener('submit', handleBusinessSettingsSubmit);
+            // --- Attach Bulk Action Listeners ---
+            if(selectAllCheckbox) selectAllCheckbox.addEventListener('change', handleSelectAll);
+            if(deliveriesTableBody) deliveriesTableBody.addEventListener('change', updateSelectionCount); // Listen on body
+            if(bulkReprintBtn) bulkReprintBtn.onclick = handleBulkReprint;
+            if(bulkCancelBtn) bulkCancelBtn.onclick = handleBulkCancel;
+            if(bulkDeleteBtn) bulkDeleteBtn.onclick = handleBulkDelete;
+            // ------------------------------------
 
             // Initial data loads
             loadManagersForDropdown();
@@ -353,8 +375,13 @@
         // --- 4. Load All Deliveries ---
         async function loadAllDeliveries() {
             const tbody = document.getElementById('all-deliveries-body');
+            // --- Reset Select All and Count ---
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            updateSelectionCount(); // Reset count display
+            // ---------------------------------
             if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="10">Loading deliveries...</td></tr>'; // Colspan is 10
+            tbody.innerHTML = '<tr><td colspan="11">Loading deliveries...</td></tr>'; // Colspan 11
             try {
                 const response = await fetch('/admin/deliveries', { headers });
                 if (response.status === 401) { window.location.href = '/login'; return; }
@@ -363,7 +390,7 @@
                 allDeliveriesData = deliveries;
                 tbody.innerHTML = '';
                 if(deliveries.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align: center;">No deliveries found.</td></tr>'; return; // Colspan 10
+                    tbody.innerHTML = '<tr><td colspan="11" style="text-align: center;">No deliveries found.</td></tr>'; return; // Colspan 11
                 }
                 deliveries.forEach(d => {
                     const row = document.createElement('tr');
@@ -373,6 +400,7 @@
                     if (d.paymentMethod === 'COD') { codStatusText = d.codPaymentStatus || 'Pending'; }
 
                     row.innerHTML = `
+                        <td><input type="checkbox" class="delivery-checkbox" value="${d._id}"></td> {/* Checkbox Cell */}
                         <td>${d.trackingId || 'N/A'}</td>
                         <td>${d.customerName || 'N/A'}</td>
                         <td><strong>${d.currentStatus || 'N/A'}</strong></td>
@@ -392,7 +420,7 @@
                 });
             } catch (err) {
                  console.error("Error loading deliveries:", err);
-                 tbody.innerHTML = `<tr><td colspan="10" style="color: red; text-align: center;">Error: ${err.message}</td></tr>`; // Colspan 10
+                 tbody.innerHTML = `<tr><td colspan="11" style="color: red; text-align: center;">Error: ${err.message}</td></tr>`; // Colspan 11
             }
         }
 
@@ -515,7 +543,6 @@
                  tbody.innerHTML = `<tr><td colspan="6" style="color: red; text-align: center;">Error: ${err.message}</td></tr>`;
             }
         }
-
         async function handleAddUserSubmit(e) {
              e.preventDefault();
              const resultDiv = document.getElementById('add-user-result');
@@ -545,7 +572,6 @@
                  resultDiv.textContent = 'Server error.'; resultDiv.className = 'message error';
             }
         }
-
         function openEditUserModal(userId) {
             const user = allUsersData.find(u => u._id === userId);
             if (!user) return;
@@ -566,7 +592,6 @@
             if(resultEl) resultEl.textContent = '';
             openModal('user-edit-modal');
         }
-
         async function handleEditUserSubmit(e) {
             e.preventDefault();
             const userId = document.getElementById('edit-user-id').value;
@@ -593,7 +618,6 @@
                 setTimeout(() => closeModal('user-edit-modal'), 1500);
             } catch (err) { console.error("Edit user error:", err); resultDiv.textContent = `Error: ${err.message}`; resultDiv.className = 'message error'; }
         }
-
         async function toggleUserActive(userId) {
              try {
                 const response = await fetch(`/admin/user/${userId}/toggle-active`, { method: 'PATCH', headers });
@@ -611,8 +635,13 @@
             const generated = generateLabel(delivery.customerName, delivery.customerAddress, delivery.trackingId, delivery.paymentMethod, delivery.customerPhone);
             if (generated) {
                  const resultArea = document.getElementById('result-area');
-                 if(resultArea) resultArea.scrollIntoView({ behavior: 'smooth' });
-                 setTimeout(printLabelInternal, 300);
+                 if(resultArea) {
+                     // Ensure the booking tab is active to show the result area
+                     openTab(null, 'tab-book'); // Switch to booking tab
+                     // Scroll after a short delay to allow tab switch
+                     setTimeout(() => resultArea.scrollIntoView({ behavior: 'smooth' }), 100);
+                 }
+                 setTimeout(printLabelInternal, 500); // Increased delay slightly
             } else { alert("Label/QR failed. Check console."); }
         }
         async function cancelDelivery(deliveryId) {
@@ -646,6 +675,7 @@
             // Use inline styles with CSS Grid for better structure
             labelDiv.innerHTML = `
                 <style>
+                    /* Scoped styles specifically for the label grid */
                     .label-grid-container { border: 1.5px solid black; display: grid; grid-template-columns: 60% 40%; grid-template-rows: auto auto auto 1fr; width: 100%; font-family: Arial, sans-serif; font-size: 10pt; background: white; }
                     .label-grid-container div { padding: 6px 8px; border-bottom: 1px solid black; border-right: 1px solid black; box-sizing: border-box; word-wrap: break-word; }
                     .label-grid-container div:nth-child(2n) { border-right: none; }
@@ -664,24 +694,24 @@
                     <div class="grid-header">SHIP TO:</div>
                     <div class="grid-header">FROM:</div>
                     <div class="grid-ship-to">
-                        <p><strong>${name || 'N/A'}</strong></p>
-                        <p>${address || 'N/A'}</p>
-                        <p>Ph: ${phone || 'N/A'}</p>
+                        <p><strong>${name||'N/A'}</strong></p>
+                        <p>${address||'N/A'}</p>
+                        <p>Ph: ${phone||'N/A'}</p>
                     </div>
                     <div class="grid-from">
                         ${logoHtml}
-                        <p>${businessSettings.businessAddress || 'N/A'}</p>
-                        <p>Ph: ${businessSettings.businessPhone || 'N/A'}</p>
+                        <p>${businessSettings.businessAddress||'N/A'}</p>
+                        <p>Ph: ${businessSettings.businessPhone||'N/A'}</p>
                     </div>
-                    <div class="grid-tracking-id">
-                        Tracking ID: <strong>${trackingId || 'N/A'}</strong>
+                    <div class="grid-order-id">
+                        ORDER ID: <strong>${trackingId||'N/A'}</strong>
                     </div>
-                    <div class="grid-order-type">
-                        Order type: <strong>${paymentMethod || 'Prepaid'}</strong>
+                    <div class="grid-remarks">
+                        REMARKS: <strong>${paymentMethod||'Prepaid'}</strong>
                     </div>
                     <div class="grid-qr-code">
-                        <div id="qrcode-tracking"></div> 
-                        <small>TRACK:-${trackingId || 'N/A'}</small> 
+                        <div id="qrcode-tracking"></div> {/* QR placeholder */}
+                        <small>TRACK${trackingId||'N/A'}</small> {/* Text below QR */}
                     </div>
                 </div>
             `;
@@ -697,7 +727,6 @@
             } else { console.error("QR Placeholder/TrackingID missing."); }
             return false; // Failure
         }
-
         // --- CORRECT Function Definition for setupActionButtons ---
         function setupActionButtons(trackingId, otp, phone) {
             console.log("Setting up action buttons for:", trackingId);
@@ -732,7 +761,6 @@
             } else { console.error("#print-btn not found!"); }
         }
         // ----------------------------------------------------
-
         function printLabelInternal() {
              const labelNode = document.getElementById('label');
              if (!labelNode || labelNode.style.display === 'none') { alert("Generate label first."); return; }
@@ -750,81 +778,45 @@
 
         // --- 11. Business Settings Logic ---
         async function loadBusinessSettings() { // Loads when tab is opened
-            const resultDiv = document.getElementById('settings-result');
-            const logoPreview = document.getElementById('logo-preview');
-            if(!resultDiv || !logoPreview) return;
-            resultDiv.textContent = 'Loading settings...'; resultDiv.className = 'message';
-            try {
-                const response = await fetch('/admin/settings', { headers });
-                if (response.status === 401) { window.location.href = '/login'; return; }
-                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                const settings = await response.json();
-                // Update global variable and Populate form fields
-                businessSettings = settings;
-                const nameEl = document.getElementById('business-name');
-                const addressEl = document.getElementById('business-address');
-                const phoneEl = document.getElementById('business-phone');
-                const logoUrlEl = document.getElementById('business-logo-url');
-                const upiIdEl = document.getElementById('upi-id');
-                const upiNameEl = document.getElementById('upi-name');
-                if(nameEl) nameEl.value = settings.businessName || '';
-                if(addressEl) addressEl.value = settings.businessAddress || '';
-                if(phoneEl) phoneEl.value = settings.businessPhone || '';
-                if(logoUrlEl) logoUrlEl.value = settings.logoUrl || '';
-                if(upiIdEl) upiIdEl.value = settings.upiId || '';
-                if(upiNameEl) upiNameEl.value = settings.upiName || '';
-                if (settings.logoUrl) { logoPreview.src = settings.logoUrl; logoPreview.style.display = 'block'; }
-                else { logoPreview.style.display = 'none'; }
-                resultDiv.textContent = '';
-            } catch (err) {
-                console.error("Error loading business settings:", err);
-                resultDiv.textContent = `Error: ${err.message}`; resultDiv.className = 'message error';
-            }
+            const resultDiv=document.getElementById('settings-result'),logoPreview=document.getElementById('logo-preview'); if(!resultDiv||!logoPreview)return;
+            resultDiv.textContent='Loading...'; resultDiv.className='message';
+            try{const r=await fetch('/admin/settings',{headers});if(r.status===401){window.location.href='/login';return}if(!r.ok)throw new Error(`HTTP ${r.status}`); const s=await r.json(); businessSettings=s;
+            const nameEl=document.getElementById('business-name'),addrEl=document.getElementById('business-address'),phoneEl=document.getElementById('business-phone'),logoUrlEl=document.getElementById('business-logo-url'),upiIdEl=document.getElementById('upi-id'),upiNameEl=document.getElementById('upi-name');
+            if(nameEl)nameEl.value=s.businessName||''; if(addrEl)addrEl.value=s.businessAddress||''; if(phoneEl)phoneEl.value=s.businessPhone||''; if(logoUrlEl)logoUrlEl.value=s.logoUrl||''; if(upiIdEl)upiIdEl.value=s.upiId||''; if(upiNameEl)upiNameEl.value=s.upiName||'';
+            if(s.logoUrl){logoPreview.src=s.logoUrl;logoPreview.style.display='block'}else{logoPreview.style.display='none'} resultDiv.textContent='';
+            }catch(e){console.error("Load settings error:",e);resultDiv.textContent=`Error: ${e.message}`;resultDiv.className='message error'}
         }
         async function loadBusinessSettingsOnLoad() { // Loads once on page load
              try {
                 const response = await fetch('/admin/settings', { headers });
                 if (response.ok) { businessSettings = await response.json(); console.log("Settings loaded:", businessSettings); }
-                else { console.error("Failed to load initial settings."); }
-            } catch (err) { console.error("Error loading initial settings:", err); }
+                else { console.error("Failed initial settings load"); }
+            } catch (err) { console.error("Initial settings load error:", err); }
         }
         async function handleBusinessSettingsSubmit(e) {
-            e.preventDefault();
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            const resultDiv = document.getElementById('settings-result');
-            const logoPreview = document.getElementById('logo-preview');
-            if(!submitBtn || !resultDiv || !logoPreview) return;
-            submitBtn.disabled = true; submitBtn.textContent = 'Saving...';
-            resultDiv.textContent = ''; resultDiv.className = 'message';
-            const settingsData = {
-                businessName: document.getElementById('business-name').value,
-                businessAddress: document.getElementById('business-address').value,
-                businessPhone: document.getElementById('business-phone').value,
-                logoUrl: document.getElementById('business-logo-url').value,
-                upiId: document.getElementById('upi-id').value,
-                upiName: document.getElementById('upi-name').value,
-            };
-            try {
-                const response = await fetch('/admin/settings', { method: 'PUT', headers, body: JSON.stringify(settingsData) });
-                const data = await response.json();
-                if (response.ok) {
-                    resultDiv.textContent = data.message || 'Saved!'; resultDiv.className = 'message success';
-                    businessSettings = data.settings || settingsData; // Update global settings
-                    if (businessSettings.logoUrl) { logoPreview.src = businessSettings.logoUrl; logoPreview.style.display = 'block'; }
-                    else { logoPreview.style.display = 'none'; }
-                } else { resultDiv.textContent = `Error: ${data.message || 'Save failed.'}`; resultDiv.className = 'message error'; }
-            } catch (err) {
-                console.error("Error saving settings:", err);
-                resultDiv.textContent = `Server error: ${err.message}`; resultDiv.className = 'message error';
-            } finally {
-                submitBtn.disabled = false; submitBtn.textContent = 'Save Settings';
-                setTimeout(() => { if(resultDiv) resultDiv.textContent = ''; }, 3000);
-            }
+            e.preventDefault(); const btn=e.target.querySelector('button[type="submit"]'),resDiv=document.getElementById('settings-result'),logoPre=document.getElementById('logo-preview'); if(!btn||!resDiv||!logoPre)return;
+            btn.disabled=true;btn.textContent='Saving...';resDiv.textContent='';resDiv.className='message';
+            const data={businessName:e.target.elements['business-name'].value,businessAddress:e.target.elements['business-address'].value,businessPhone:e.target.elements['business-phone'].value,logoUrl:e.target.elements['business-logo-url'].value,upiId:e.target.elements['upi-id'].value,upiName:e.target.elements['upi-name'].value};
+            try{const r=await fetch('/admin/settings',{method:'PUT',headers,body:JSON.stringify(data)}); const d=await r.json();
+            if(r.ok){resDiv.textContent=d.message||'Saved!';resDiv.className='message success';businessSettings=d.settings||data; if(businessSettings.logoUrl){logoPre.src=businessSettings.logoUrl;logoPre.style.display='block'}else{logoPre.style.display='none'}}
+            else{resDiv.textContent=`Error: ${d.message||'Save failed.'}`;resDiv.className='message error'}
+            }catch(e){console.error("Save settings error:",e);resDiv.textContent=`Server error: ${e.message}`;resDiv.className='message error'}
+            finally{btn.disabled=false;btn.textContent='Save Settings';setTimeout(()=>{if(resDiv)resDiv.textContent=''},3000)}
         }
+
+        // --- 12. Bulk Action Helper Functions --- // Renumbered section
+        function getSelectedDeliveryIds(){const ids=[];document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').forEach(cb=>ids.push(cb.value));return ids}
+        function updateSelectionCount(){const count=document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').length; const countSpan=document.getElementById('selection-count'); const selAll=document.getElementById('select-all-checkbox'); const allCb=document.querySelectorAll('#all-deliveries-body .delivery-checkbox');
+        if(countSpan)countSpan.textContent=`(${count} selected)`; if(selAll&&allCb.length>0){selAll.checked=(count===allCb.length);selAll.indeterminate=(count>0&&count<allCb.length)}else if(selAll){selAll.checked=false;selAll.indeterminate=false}}
+        function handleSelectAll(e){document.querySelectorAll('#all-deliveries-body .delivery-checkbox').forEach(cb=>cb.checked=e.target.checked);updateSelectionCount()}
+
+        // --- 13. Bulk Action Handlers --- // Renumbered section
+        function handleBulkReprint(){const ids=getSelectedDeliveryIds();if(ids.length===0){alert("Select deliveries.");return}ids.forEach(id=>reprintLabel(id))}
+        async function handleBulkCancel(){const ids=getSelectedDeliveryIds();if(ids.length===0){alert("Select deliveries.");return}if(!confirm(`Cancel ${ids.length} deliveries?`))return;
+        try{const r=await fetch('/admin/deliveries/bulk-cancel',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Bulk cancel failed'); alert(`Cancelled ${d.cancelledCount||ids.length}.`); loadAllDeliveries(); const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;updateSelectionCount();}catch(e){console.error("Bulk cancel:",e);alert(`Error: ${e.message}`)}}
+        async function handleBulkDelete(){const ids=getSelectedDeliveryIds();if(ids.length===0){alert("Select deliveries.");return}if(!confirm(`DELETE ${ids.length} records permanently?`))return;
+        try{const r=await fetch('/admin/deliveries/bulk-delete',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Bulk delete failed'); alert(`Deleted ${d.deletedCount||ids.length}.`); loadAllDeliveries(); const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;updateSelectionCount();}catch(e){console.error("Bulk delete:",e);alert(`Error: ${e.message}`)}}
+
     </script>
-
-</body>
-</html>
-
 </body>
 </html>
