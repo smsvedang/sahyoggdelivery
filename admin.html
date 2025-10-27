@@ -673,15 +673,15 @@
                         <p>${businessSettings.businessAddress || 'N/A'}</p>
                         <p>Ph: ${businessSettings.businessPhone || 'N/A'}</p>
                     </div>
-                    <div class="grid-order-id">
-                        ORDER ID: <strong>${trackingId || 'N/A'}</strong>
+                    <div class="grid-tracking-id">
+                        Tracking ID: <strong>${trackingId || 'N/A'}</strong>
                     </div>
-                    <div class="grid-remarks">
-                        REMARKS: <strong>${paymentMethod || 'Prepaid'}</strong>
+                    <div class="grid-order-type">
+                        Order type: <strong>${paymentMethod || 'Prepaid'}</strong>
                     </div>
                     <div class="grid-qr-code">
                         <div id="qrcode-tracking"></div> 
-                        <small>TRACK${trackingId || 'N/A'}</small> 
+                        <small>TRACK:-${trackingId || 'N/A'}</small> 
                     </div>
                 </div>
             `;
