@@ -393,11 +393,59 @@
                     tbody.innerHTML = '<tr><td colspan="11" style="text-align: center;">No deliveries found.</td></tr>'; return; // Colspan 11
                 }
                 deliveries.forEach(d => {
-                    const row = document.createElement('tr');
-                    const date = new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric'});
-                    const isCancelable = !['Delivered', 'Cancelled'].includes(d.currentStatus);
+                    const row = tbody.insertRow(); // Use insertRow for better performance/reliability
+                    row.style.verticalAlign = 'middle'; // Ensure vertical alignment
+
+                    // Create cells one by one using insertCell and setting content
+                    // Cell 0: Checkbox
+                    const cellCheckbox = row.insertCell();
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'delivery-checkbox';
+                    checkbox.value = d._id;
+                    cellCheckbox.appendChild(checkbox);
+
+                    // Cell 1: Tracking ID
+                    row.insertCell().textContent = d.trackingId || 'N/A';
+
+                    // Cell 2: Customer
+                    row.insertCell().textContent = d.customerName || 'N/A';
+
+                    // Cell 3: Status (using innerHTML for <strong>)
+                    const cellStatus = row.insertCell();
+                    cellStatus.innerHTML = `<strong>${d.currentStatus || 'N/A'}</strong>`;
+
+                    // Cell 4: Payment
+                    row.insertCell().textContent = d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid';
+
+                    // Cell 5: COD Status
                     let codStatusText = 'N/A';
                     if (d.paymentMethod === 'COD') { codStatusText = d.codPaymentStatus || 'Pending'; }
+                    row.insertCell().textContent = codStatusText;
+
+                    // Cell 6: Assigned Manager
+                    row.insertCell().textContent = d.assignedByManager && d.assignedByManager.name ? d.assignedByManager.name : 'N/A';
+
+                    // Cell 7: Assigned Boy
+                    row.insertCell().textContent = d.assignedTo && d.assignedTo.name ? d.assignedTo.name : (d.assignedBoyDetails && d.assignedBoyDetails.name ? d.assignedBoyDetails.name + ' (Assigned)' : 'N/A');
+
+                    // Cell 8: OTP (using innerHTML for <strong>)
+                    const cellOtp = row.insertCell();
+                    cellOtp.innerHTML = `<strong>${d.otp || 'N/A'}</strong>`;
+
+                    // Cell 9: Date
+                    const date = new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric'});
+                    row.insertCell().textContent = date;
+
+                    // Cell 10: Actions (using innerHTML for buttons)
+                    const cellActions = row.insertCell();
+                    const isCancelable = !['Delivered', 'Cancelled'].includes(d.currentStatus);
+                    cellActions.innerHTML = `
+                        <button class="btn-secondary btn-sm" onclick="reprintLabel('${d._id}')" title="Reprint Label">Reprint</button>
+                        <button class="btn-warning btn-sm" onclick="cancelDelivery('${d._id}')" ${!isCancelable ? 'disabled title="Cannot cancel"' : 'title="Cancel Delivery"'}>Cancel</button>
+                        <button class="btn-danger btn-sm" onclick="deleteDelivery('${d._id}')" title="Delete Record">Delete</button>
+                    `;
+                });
 
                     row.innerHTML = `
                         <td><input type="checkbox" class="delivery-checkbox" value="${d._id}"></td> 
