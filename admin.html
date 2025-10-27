@@ -598,90 +598,104 @@
             } catch (err) { console.error("Delete error:", err); alert(`Error: ${err.message}`); }
         }
 
-        // --- 8. Label Generation & Print ---
+        // --- 8. Label Generation & Print (Improved Grid Design) ---
         function generateLabel(name, address, trackingId, paymentMethod, phone) {
             const labelDiv = document.getElementById('label');
             if (!labelDiv) { console.error("#label not found!"); return false; }
 
             const logoHtml = businessSettings.logoUrl
-                ? `<img src="${businessSettings.logoUrl}" alt="${businessSettings.businessName || 'Logo'}" style="max-width: 100px; max-height: 50px; display: block; margin-right: 10px;">`
-                : '';
+                ? `<img src="${businessSettings.logoUrl}" alt="${businessSettings.businessName || 'Logo'}" style="max-height: 40px; max-width: 120px; margin-bottom: 5px;">` // Adjusted size
+                : `<strong>${businessSettings.businessName || 'Sahyog Medical'}</strong>`; // Show name if no logo
 
-            // Removed inline styles, rely on CSS @media print and the new .label-grid styles
+            // Use inline styles with CSS Grid for better structure
             labelDiv.innerHTML = `
-                <div class="label-grid">
-                     <div class="label-cell cell-ship-to">
-                         <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center;">
-                             ${logoHtml}SHIP TO:
-                         </div>
-                         <p style="margin: 0; padding: 0;"><strong>${name || 'N/A'}</strong></p>
-                         <p style="margin: 0; padding: 0; white-space: pre-wrap;">${address || 'N/A'}</p>
-                         <p style="margin: 0; padding: 0;">Ph: ${phone || 'N/A'}</p>
-                     </div>
-                     <div class="label-cell cell-from">
-                         <div style="font-weight: bold; margin-bottom: 5px;">FROM:</div>
-                         <p style="margin: 0; padding: 0;"><strong>${businessSettings.businessName || 'Sahyog Medical'}</strong></p>
-                         <p style="margin: 0; padding: 0; white-space: pre-wrap;">${businessSettings.businessAddress || 'N/A'}</p>
-                         <p style="margin: 0; padding: 0;">Ph: ${businessSettings.businessPhone || 'N/A'}</p>
-                     </div>
-                     <div class="label-cell cell-order-id">
-                         ORDER ID: <strong style="float: right;">${trackingId || 'N/A'}</strong>
-                     </div>
-                     <div class="label-cell cell-remarks">
-                         REMARKS: <strong style="float: right;">${paymentMethod || 'Prepaid'}</strong>
-                     </div>
-                     <div class="label-cell cell-weight">WEIGHT: <strong style="float: right;">N/A</strong></div>
-                     <div class="label-cell cell-dimensions">DIMENSIONS: <strong style="float: right;">N/A</strong></div>
-                     <div class="label-cell cell-shipping-date">
-                         SHIPPING DATE: <strong style="float: right;">${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-')}</strong>
-                     </div>
-                     <div class="label-cell cell-barcode-qr">
-                         <div id="qrcode-tracking"></div> {/* Changed ID back */}
-                         <div style="font-size: 8pt; font-weight: bold; letter-spacing: 1px;">TRACK${trackingId || 'N/A'}</div>
-                     </div>
-                </div>`;
+                <style>
+                    /* Scoped styles specifically for the label grid */
+                    .label-grid-container {
+                        border: 1.5px solid black;
+                        display: grid;
+                        grid-template-columns: 60% 40%; /* Adjust column widths as needed */
+                        grid-template-rows: auto auto auto 1fr; /* Rows for header, ship/from, order/remarks, qr */
+                        width: 100%; /* Or a fixed width like 400px */
+                        font-family: Arial, sans-serif;
+                        font-size: 10pt;
+                        background: white;
+                    }
+                    .label-grid-container div { /* Basic cell styling */
+                        padding: 6px 8px;
+                        border-bottom: 1px solid black;
+                        border-right: 1px solid black;
+                        box-sizing: border-box;
+                        word-wrap: break-word; /* Ensure text wraps */
+                    }
+                    /* Remove right border on last column */
+                    .label-grid-container div:nth-child(2n) { border-right: none; }
+                    /* Remove bottom border on last row */
+                    .label-grid-container div:nth-last-child(-n+2) { border-bottom: none; } /* Targets last two cells if 2 columns */
+
+                    .grid-header { font-weight: bold; background-color: #f0f0f0; }
+                    .grid-ship-to { grid-column: 1 / 2; grid-row: 2 / 3; }
+                    .grid-from { grid-column: 2 / 3; grid-row: 2 / 3; }
+                    .grid-order-id { grid-column: 1 / 2; grid-row: 3 / 4; }
+                    .grid-remarks { grid-column: 2 / 3; grid-row: 3 / 4; }
+                    .grid-qr-code { grid-column: 1 / 3; grid-row: 4 / 5; text-align: center; padding-top: 15px; padding-bottom: 5px; border-top: 1.5px solid black; } /* Thicker top border */
+
+                    .grid-qr-code #qrcode-tracking img { display: block; margin: 0 auto 5px auto; } /* Center QR */
+                    .grid-qr-code small { font-size: 8pt; font-weight: bold; letter-spacing: 1px; display: block; }
+
+                    /* Minimal margin/padding for paragraphs inside cells */
+                    .label-grid-container p { margin: 2px 0; padding: 0; }
+                </style>
+
+                <div class="label-grid-container">
+                    {/* Row 1: Headers */}
+                    <div class="grid-header">SHIP TO:</div>
+                    <div class="grid-header">FROM:</div>
+
+                    {/* Row 2: Addresses */}
+                    <div class="grid-ship-to">
+                        <p><strong>${name || 'N/A'}</strong></p>
+                        <p>${address || 'N/A'}</p>
+                        <p>Ph: ${phone || 'N/A'}</p>
+                    </div>
+                    <div class="grid-from">
+                        ${logoHtml} {/* Logo or Name */}
+                        <p>${businessSettings.businessAddress || 'N/A'}</p>
+                        <p>Ph: ${businessSettings.businessPhone || 'N/A'}</p>
+                    </div>
+
+                    {/* Row 3: Order Info */}
+                    <div class="grid-order-id">
+                        ORDER ID: <strong>${trackingId || 'N/A'}</strong>
+                    </div>
+                    <div class="grid-remarks">
+                        REMARKS: <strong>${paymentMethod || 'Prepaid'}</strong>
+                    </div>
+
+                    {/* Row 4: QR Code */}
+                    <div class="grid-qr-code">
+                        <div id="qrcode-tracking"></div> {/* QR placeholder */}
+                        <small>TRACK${trackingId || 'N/A'}</small> {/* Text below QR */}
+                    </div>
+                </div>
+            `;
             labelDiv.style.display = 'block';
 
-            const qrElement = labelDiv.querySelector('#qrcode-tracking'); // Use correct ID
+            // Generate QR Code after setting innerHTML
+            const qrElement = labelDiv.querySelector('#qrcode-tracking');
             if (qrElement && trackingId) {
-                qrElement.innerHTML = '';
+                qrElement.innerHTML = ''; // Clear previous
                 try {
-                    new QRCode(qrElement, { text: trackingId, width: 90, height: 90, correctLevel: QRCode.CorrectLevel.H });
-                    return true;
+                    new QRCode(qrElement, {
+                        text: trackingId,
+                        width: 100, // Slightly smaller QR might fit better
+                        height: 100,
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    return true; // Success
                 } catch (qrError) { console.error("QR Error:", qrError); qrElement.innerHTML = '<p style="color:red; font-size: small;">QR Error</p>'; }
             } else { console.error("QR Placeholder/TrackingID missing."); }
-            return false;
-        }
-
-        function setupActionButtons(trackingId, otp, phone) {
-            const shareBtn = document.getElementById('share-btn');
-            const printBtn = document.getElementById('print-btn');
-            if (shareBtn) {
-                shareBtn.onclick = async () => {
-                    console.log("Share button clicked. Data:", { trackingId, otp });
-                    const shareText = `Thanks for choosing Sahyog Medical!\nYour Tracking ID: ${trackingId}\nYour OTP for delivery: ${otp}\nTrack here: ${window.location.origin}/track`;
-                    if (navigator.share) {
-                        try { await navigator.share({ title: 'Your Order is Booked!', text: shareText }); console.log('Shared OK'); }
-                        catch (err) {
-                            console.error("Share failed:", err);
-                            if (navigator.clipboard) {
-                                try { await navigator.clipboard.writeText(shareText); alert('Details copied!'); }
-                                catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log(shareText); }
-                            } else { alert('Share/Copy failed.'); console.log(shareText); }
-                        }
-                    } else if (navigator.clipboard) {
-                        try { await navigator.clipboard.writeText(shareText); alert('Details copied!'); }
-                        catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log(shareText); }
-                    } else { alert('Share/Copy failed.'); console.log(shareText); }
-                };
-            } else { console.error("#share-btn not found!"); }
-            if (printBtn) { printBtn.onclick = printLabelInternal; }
-            else { console.error("#print-btn not found!"); }
-        }
-        function printLabelInternal() {
-             const labelNode = document.getElementById('label');
-             if (!labelNode || labelNode.style.display === 'none') { alert("Generate label first."); return; }
-             window.print();
+            return false; // Failure
         }
 
         // --- 9. Modal Helpers ---
