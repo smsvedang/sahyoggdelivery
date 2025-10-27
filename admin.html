@@ -145,7 +145,7 @@
                         <th>COD Status</th>
                         <th>Assigned Manager</th>
                         <th>Assigned Boy</th>
-                        <th>OTP</th> {/* Added OTP Header */}
+                        <th>OTP</th>
                         <th>Date</th>
                         <th>Actions</th>
                     </tr>
@@ -340,7 +340,7 @@
                         <td>${codStatusText}</td>
                         <td>${d.assignedByManager && d.assignedByManager.name ? d.assignedByManager.name : 'N/A'}</td>
                         <td>${d.assignedTo && d.assignedTo.name ? d.assignedTo.name : (d.assignedBoyDetails && d.assignedBoyDetails.name ? d.assignedBoyDetails.name + ' (Assigned)' : 'N/A')}</td>
-                        <td><strong>${d.otp || 'N/A'}</strong></td> {/* Added OTP */}
+                        <td><strong>${d.otp || 'N/A'}</strong></td>
                         <td>${date}</td>
                         <td>
                             <button class="btn-secondary btn-sm" onclick="reprintLabel('${d._id}')" title="Reprint Label">Reprint</button>
