@@ -225,6 +225,35 @@ app.get('/admin/users', auth(['admin']), async (req, res) => {
         res.status(500).json({ message: 'Error fetching users' });
     }
 });
+// 7.3. Get All Users
+app.get('/admin/users', auth(['admin']), async (req, res) => {
+    try {
+        const users = await User.find({}, '-password') // Exclude password field
+                          .populate('createdByManager', 'name')
+                          .sort({ role: 1, name: 1 });
+        res.json(users);
+    } catch (error) {
+        console.error("Fetch Users Error:", error);
+        res.status(500).json({ message: 'Error fetching users' });
+    }
+});
+
+// 7.3b. Get All ACTIVE Managers (for dropdowns)
+app.get('/admin/managers', auth(['admin']), async (req, res) => {
+    try {
+        // Find only users who are 'manager' and 'isActive'
+        const managers = await User.find(
+            { role: 'manager', isActive: true },
+            'name _id' // Select only the name and ID fields
+        ).sort({ name: 1 }); // Sort them alphabetically
+        
+        res.json(managers);
+        
+    } catch (error) {
+        console.error("Fetch Active Managers Error:", error);
+        res.status(500).json({ message: 'Error fetching managers' });
+    }
+});
 
 // 7.4. Create User
 app.post('/admin/create-user', auth(['admin']), async (req, res) => {
