@@ -3,54 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delivery Panel</title>
+    <title>Delivery Panel - Sahyog</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        /* General */
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1, h2 { border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        /* General Styles */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
+        h1, h2 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 5px; }
         .header { display: flex; justify-content: space-between; align-items: center; }
         .header button { padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; }
         button { cursor: pointer; border-radius: 5px; padding: 10px 15px; border: none; margin: 5px 0; }
         button.btn-primary { background-color: #007bff; color: white; }
         button.btn-secondary { background-color: #6c757d; color: white; }
         button.btn-success { background-color: #28a745; color: white; }
-        input[type="text"], input[type="password"] { padding: 10px; width: 90%; max-width: 300px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        input[type="text"], input[type="password"] { padding: 10px; width: calc(100% - 22px); max-width: 300px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
         .message { padding: 10px; margin-top: 10px; border-radius: 5px; }
         .success { background-color: #d4edda; color: #155724; }
         .error { background-color: #f8d7da; color: #721c24; }
         .footer { text-align: center; margin-top: 30px; color: #888; font-size: 0.9em; }
+        
+        /* Card Layout */
+        .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; border: 1px solid #dee2e6; }
+        
+        /* Scanner Section */
+        #reader { width: 100%; max-width: 350px; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; }
+        
+        /* Delivery List Section */
+        #delivery-list-container { padding: 0; }
+        .delivery-item {
+            list-style: none;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-left: 5px solid #007bff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+        .delivery-item .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .delivery-item .item-header .tracking-id { font-weight: bold; font-size: 1.1em; color: #007bff; }
+        .delivery-item .item-header .serial-no { font-size: 1.1em; font-weight: bold; color: #888; }
+        .delivery-item .item-body { font-size: 0.95em; color: #333; line-height: 1.5; }
+        .delivery-item .item-body strong { color: #000; }
+        .delivery-item .item-footer { margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; }
+        .delivery-item .item-footer button { font-size: 0.9em; padding: 5px 10px; background-color: #17a2b8; color: white; }
 
-        /* Delivery List */
-        #pending-list { padding: 0; }
-        #pending-list li { background: #f9f9f9; padding: 15px; margin-bottom: 10px; list-style: none; border-radius: 5px; border-left: 5px solid #007bff; }
-        #pending-list li.status-picked-up { border-left-color: #ffc107; }
-        #pending-list li.status-out-for-delivery { border-left-color: #17a2b8; }
-
-        /* Scanner */
-        #reader { width: 90%; max-width: 350px; border: 1px solid #ccc; margin-bottom: 15px; }
-
-         /* Complete Delivery Section */
-         #complete-section { border: 1px solid #eee; padding: 15px; border-radius: 5px; margin-top: 20px; }
-         #cod-payment-options { margin-top:10px; background: #fffbe6; padding: 10px; border-radius: 5px; }
-         #cod-payment-options label { margin-right: 15px; }
-
-         /* Fallback Manual Entry */
-         #manual-entry { display: none; margin-top: 15px; padding: 15px; border: 1px dashed #ccc; border-radius: 5px; }
-         #manual-entry button { margin-top: 10px; }
+        .pagination-controls { text-align: center; margin-top: 20px; }
+        #pagination-info { color: #666; margin-bottom: 10px; }
+        #show-more-btn { background-color: #007bff; color: white; width: 100%; max-width: 350px; }
+        #show-more-btn:disabled { background-color: #ccc; }
 
         /* Payment QR Modal */
-        #qr-modal { display: none; /* ... (rest of modal styles same as before) ... */ }
-       #qr-modal-content {
-    background-color: #fefefe;
-    padding: 20px;
-    border: 1px solid #888;
-    border-radius: 8px;
-    width: 300px;
-    text-align: center;
-    position: relative; /* Needed for close button */
-}
+        #qr-modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center;
+        }
+        #qr-modal-content {
+            background-color: #fefefe; padding: 20px; border-radius: 8px; width: 300px; text-align: center;
+            position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        #qr-modal-content .close-button {
+            position: absolute; top: 10px; right: 15px; font-size: 28px;
+            font-weight: bold; color: #aaa; cursor: pointer;
+        }
         #payment-qrcode { width: 256px; height: 256px; margin: 15px auto; }
     </style>
 </head>
@@ -60,235 +75,249 @@
         <h1>Delivery Panel (Welcome, <span id="delivery-name"></span>)</h1>
         <button id="logout-btn" class="btn-danger">Logout</button>
     </div>
-    <button id="enable-notifications" class="btn-success">Enable Notifications</button>
+    <button id="enable-notifications" class="btn-success" style="width: 100%; margin-bottom: 20px;">Enable Notifications</button>
 
-    <h2>1. My Assigned Deliveries</h2>
-    <button id="fetch-pending" class="btn-secondary">Refresh My Deliveries</button>
-    <ul id="pending-list"></ul>
+    <div class="card">
+        <h2>Update Status (Scan QR)</h2>
+        <p>Scan QR code on label to update status (Picked Up / Out for Delivery / Complete).</p>
+        <div id="reader"></div>
+        <div id="scan-result" class="message" style="display:none;"></div>
+        <button id="manual-entry-toggle-btn" class="btn-secondary" style="margin-top: 10px;">QR Not Working? Enter Manually</button>
+    </div>
 
-    <h2>2. Update Status (Scan QR)</h2>
-    <p>Scan the QR code on the label to mark as "Picked Up" or "Out for Delivery".</p>
-    <div id="reader"></div>
-    <div id="scan-result" class="message" style="display:none;"></div>
-    <button onclick="toggleManualEntry()" class="btn-secondary">QR Not Working? Enter Manually</button>
+    <div class="card" id="manual-entry-card" style="display:none;">
+        <h2>Manual Update / Complete</h2>
+        <label for="manual-tracking-id">Tracking ID:</label>
+        <input type="text" id="manual-tracking-id" onblur="checkIfCod(this.value)">
+        
+        <button id="manual-update-btn" class="btn-primary">Update Status (Picked/Out)</button>
+        <div id="manual-result" class="message" style="display:none;"></div>
 
-     <div id="manual-entry">
-         <h3>Manual Status Update</h3>
-         <label for="manual-tracking-id">Tracking ID:</label><br>
-         <input type="text" id="manual-tracking-id"><br>
-         <button id="manual-update-btn" class="btn-primary">Update Status Manually</button>
-         <div id="manual-result" class="message" style="display:none;"></div>
-     </div>
-
-    <div id="complete-section">
-        <h2>3. Complete Delivery (Delivered)</h2>
-        <p>Enter Tracking ID (or scan again) and Customer OTP.</p>
-        <label for="complete-tracking-id">Tracking ID:</label><br>
-        <input type="text" id="complete-tracking-id" onblur="checkIfCod(this.value)"><br>
-        <label for="complete-otp-code">Customer OTP:</label><br>
-        <input type="password" id="complete-otp-code"><br>
-
-        <div id="cod-payment-options" style="display:none;">
+        <hr style="margin: 20px 0;">
+        
+        <label for="complete-otp-code">Customer OTP:</label>
+        <input type="password" id="complete-otp-code" placeholder="Enter OTP to complete">
+        
+        <div id="cod-payment-options" style="display:none; margin-top:10px; background: #fffbe6; padding: 10px; border-radius: 5px;">
             <strong>Payment Received:</strong><br>
             <input type="radio" id="pay-cash" name="paymentReceivedMethod" value="cash" required>
-            <label for="pay-cash">By Cash</label>
+            <label for="pay-cash">By Cash</label><br>
             <input type="radio" id="pay-online" name="paymentReceivedMethod" value="online">
             <label for="pay-online">By Online (QR)</label>
         </div>
 
-        <button id="complete-btn" class="btn-success">Mark as Delivered</button>
+        <button id="complete-btn" class="btn-success" style="margin-top: 10px;">Mark as Delivered (with OTP)</button>
         <div id="complete-result" class="message" style="display:none;"></div>
     </div>
 
-    <div id="qr-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center;">
-        <div id="qr-modal-content" style="background-color: #fefefe; padding: 20px; border: 1px solid #888; border-radius: 8px; width: 300px; text-align: center; position: relative;">
-            <span class="close-button" style="color: #aaa; position: absolute; top: 5px; right: 15px; font-size: 28px; font-weight: bold; cursor: pointer;" onclick="document.getElementById('qr-modal').style.display='none'">&times;</span>
-            <h3>Scan to Pay (Amount: ₹<span id="qr-amount">0.00</span>)</h3>
-            <div id="payment-qrcode" style="width: 256px; height: 256px; margin: 15px auto;"></div>
-            <button id="close-qr-modal-btn" class="btn-secondary" style="margin-top: 15px;" onclick="document.getElementById('qr-modal').style.display='none'">Close</button>
+    <div class="card">
+        <h2>My Assigned Deliveries</h2>
+        <button id="refresh-btn" class="btn-secondary">Refresh List</button>
+        <ul id="pending-list">
+            </ul>
+        <div class="pagination-controls">
+            <div id="pagination-info">Loading...</div>
+            <button id="show-more-btn" class="btn-primary" style="display:none;">Show More (5)</button>
         </div>
     </div>
+
+    <div id="qr-modal">
+        <div id="qr-modal-content">
+            <span class="close-button" id="close-qr-modal">&times;</span>
+            <h3>Scan to Pay (Amount: ₹<span id="qr-amount">0.00</span>)</h3>
+            <div id="payment-qrcode"></div>
+        </div>
+    </div>
+
     <div class="footer">
-         Copyright © <span id="copyright-year"></span> Sahyog Medical. All Rights Reserved.
+        Copyright © <span id="copyright-year"></span> Sahyog Medical. All Rights Reserved.
     </div>
 
     <script>
+        // --- 1. Global Variables ---
         const token = localStorage.getItem('authToken');
         const role = localStorage.getItem('userRole');
         const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+        const html5QrCode = new Html5Qrcode("reader");
+        let businessSettings = {}; // UPI ID ke liye
+        let currentPage = 1;
+        let totalDeliveries = 0;
+        let isLoading = false; // "Show More" ko double-click se rokne ke liye
+
+        // --- DOM Elements ---
+        const pendingList = document.getElementById('pending-list');
+        const paginationInfo = document.getElementById('pagination-info');
+        const showMoreBtn = document.getElementById('show-more-btn');
         const scanResultDiv = document.getElementById('scan-result');
         const manualResultDiv = document.getElementById('manual-result');
         const completeResultDiv = document.getElementById('complete-result');
-        const pendingList = document.getElementById('pending-list');
-        const html5QrCode = new Html5Qrcode("reader"); // Define scanner instance globally in script
-        let currentDeliveries = [];
 
-        // --- 1. Security Guard & Initial Load ---
-        // Use DOMContentLoaded to ensure all HTML is loaded before running script
+        // --- 2. Initial Load & Security ---
         document.addEventListener('DOMContentLoaded', () => {
             if (!token || role !== 'delivery') {
-                localStorage.clear();
-                window.location.href = '/login';
-                return;
+                localStorage.clear(); window.location.href = '/login'; return;
             }
-            // Check if elements exist before trying to access them
-            const deliveryNameEl = document.getElementById('delivery-name');
-            const copyrightYearEl = document.getElementById('copyright-year');
-            if(deliveryNameEl) deliveryNameEl.textContent = localStorage.getItem('userName');
-            if(copyrightYearEl) copyrightYearEl.textContent = new Date().getFullYear();
-
-            // Setup button listeners after DOM is loaded
+            document.getElementById('delivery-name').textContent = localStorage.getItem('userName');
+            document.getElementById('copyright-year').textContent = new Date().getFullYear();
+            
             setupEventListeners();
-
-            // Initial data load
-            loadAssignedDeliveries();
+            loadInitialData();
             startScanner();
         });
 
-        // --- Function to setup event listeners ---
         function setupEventListeners() {
-            const fetchPendingBtn = document.getElementById('fetch-pending');
-            const completeBtn = document.getElementById('complete-btn');
-            const enableNotificationsBtn = document.getElementById('enable-notifications');
-            const logoutBtn = document.getElementById('logout-btn');
-            const manualUpdateBtn = document.getElementById('manual-update-btn');
-            const closeQrModalBtn = document.getElementById('close-qr-modal');
-
-            if(fetchPendingBtn) fetchPendingBtn.onclick = loadAssignedDeliveries;
-            if(completeBtn) completeBtn.onclick = completeDeliveryHandler; // Changed name to avoid conflict
-            if(enableNotificationsBtn) enableNotificationsBtn.onclick = enableNotificationsHandler; // Changed name
-            if(logoutBtn) logoutBtn.onclick = logoutHandler; // Changed name
-            if(manualUpdateBtn) manualUpdateBtn.onclick = () => {
-                 const trackingId = document.getElementById('manual-tracking-id').value;
-                 if (!trackingId) {
-                     manualResultDiv.textContent = 'Please enter Tracking ID.';
-                     manualResultDiv.className = 'message error';
-                     manualResultDiv.style.display = 'block';
-                     return;
-                 }
-                 manualResultDiv.style.display = 'block';
-                 updateDeliveryStatus(trackingId, manualResultDiv);
-             };
-            if(closeQrModalBtn) closeQrModalBtn.onclick = () => {
-                const qrModal = document.getElementById('qr-modal');
-                if(qrModal) qrModal.style.display = 'none';
-            };
+            document.getElementById('logout-btn').onclick = logoutHandler;
+            document.getElementById('enable-notifications').onclick = enableNotificationsHandler;
+            document.getElementById('refresh-btn').onclick = () => loadAssignedDeliveries(true); // Refresh
+            document.getElementById('show-more-btn').onclick = () => loadAssignedDeliveries(false); // Show More
+            document.getElementById('manual-entry-toggle-btn').onclick = toggleManualEntry;
+            document.getElementById('manual-update-btn').onclick = handleManualUpdate;
+            document.getElementById('complete-btn').onclick = handleCompleteDelivery;
+            document.getElementById('close-qr-modal').onclick = () => { document.getElementById('qr-modal').style.display = 'none'; };
         }
 
+        async function loadInitialData() {
+            await loadBusinessSettings(); // Pehle settings load karein
+            await loadAssignedDeliveries(true); // Phir pehla page load karein
+        }
 
-        // --- 2. Load Assigned Deliveries (Corrected for Pagination Response) ---
-        document.getElementById('fetch-pending').onclick = loadAssignedDeliveries;
-        async function loadAssignedDeliveries() {
-            if(!pendingList) return;
-            pendingList.innerHTML = '<li>Loading...</li>';
+        // --- 3. Business Settings (UPI ke liye) ---
+        async function loadBusinessSettings() {
+             try {
+                const response = await fetch('/admin/settings', { headers }); // Admin route (permission pehle hi set hai)
+                if (response.ok) {
+                    businessSettings = await response.json();
+                    console.log("Business settings loaded (for UPI):", businessSettings.upiId);
+                } else { console.error("Failed to load business settings"); }
+            } catch (err) { console.error("Error loading business settings:", err); }
+        }
+
+        // --- 4. Load Deliveries (Pagination ke saath) ---
+        async function loadAssignedDeliveries(isRefresh = false) {
+            if (isLoading) return; // Double-click rokein
+            isLoading = true;
+            
+            if (isRefresh) {
+                currentPage = 1;
+                totalDeliveries = 0;
+                if (pendingList) pendingList.innerHTML = '<li>Loading...</li>';
+            }
+            
+            showMoreBtn.disabled = true;
+            showMoreBtn.textContent = 'Loading...';
+
             try {
-                // Fetch data (assuming page 1 for now, pagination UI not added yet)
-                const response = await fetch('/delivery/my-deliveries?page=1', { headers }); // Added ?page=1
+                const response = await fetch(`/delivery/my-deliveries?page=${currentPage}`, { headers });
                 if (response.status === 401) { window.location.href = '/login'; return; }
                 if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                
+                const data = await response.json();
+                const deliveriesArray = data.deliveries;
+                totalDeliveries = data.totalDeliveries;
 
-                // --- CORRECTED PART ---
-                const responseData = await response.json(); // Get the whole object
-                const deliveriesArray = responseData.deliveries; // Extract the array
-                // --- END CORRECTION ---
+                if (isRefresh) pendingList.innerHTML = ''; // Loading hatayein
 
-                currentDeliveries = deliveriesArray; // Store the array
-                pendingList.innerHTML = '';
-
-                if (!deliveriesArray || deliveriesArray.length === 0) { // Check the array
-                    pendingList.innerHTML = '<li>No pending deliveries assigned to you.</li>'; return;
+                if (deliveriesArray.length === 0 && isRefresh) {
+                    pendingList.innerHTML = '<li>No pending deliveries assigned to you.</li>';
                 }
 
-                deliveriesArray.forEach(d => { // Iterate over the array
+                deliveriesArray.forEach((d, index) => {
                     const li = document.createElement('li');
-                    // ... (rest of the li.innerHTML generation remains the same) ...
-                    let paymentInfo = `<strong>Payment: ${d.paymentMethod}</strong>`;
-                    // ... (rest of paymentInfo logic) ...
+                    li.className = 'delivery-item';
+                    
+                    // Status ke hisaab se border color
+                    if(d.currentStatus === 'Picked Up') li.style.borderLeftColor = '#ffc107';
+                    if(d.currentStatus === 'Out for Delivery') li.style.borderLeftColor = '#17a2b8';
+
+                    // Serial No.
+                    const serialNumber = (currentPage - 1) * 5 + index + 1;
+
+                    let paymentInfo = `<strong>Payment:</strong> ${d.paymentMethod}`;
+                    let paymentButton = '';
+                    if (d.paymentMethod === 'COD') {
+                        paymentInfo += ` (<strong>₹${d.billAmount}</strong>)`;
+                        if (d.currentStatus === 'Out for Delivery') {
+                            paymentButton = `<button onclick="showPaymentQr('${d.billAmount}', '${d.trackingId}')">Show Payment QR</button>`;
+                        }
+                    }
+
                     li.innerHTML = `
-                        <strong>${d.trackingId} (Status: ${d.currentStatus})</strong><br>
-                        ${d.customerName}<br>
-                        ${d.customerAddress}<br>
-                        ${paymentInfo}
+                        <div class="item-header">
+                            <span class="tracking-id">${d.trackingId}</span>
+                            <span class="serial-no">#${serialNumber}</span>
+                        </div>
+                        <div class="item-body">
+                            <strong>Customer:</strong> ${d.customerName}<br>
+                            <strong>Address:</strong> ${d.customerAddress}<br>
+                            <strong>Phone:</strong> ${d.customerPhone || 'N/A'}<br>
+                            ${paymentInfo}
+                        </div>
+                        <div class="item-footer">
+                            <strong>Status:</strong> ${d.currentStatus}
+                            ${paymentButton}
+                        </div>
                     `;
                     pendingList.appendChild(li);
                 });
 
-                // (Optional: Add pagination buttons later using responseData.totalPages)
+                // Pagination status update
+                const loadedCount = pendingList.children.length;
+                paginationInfo.textContent = `Showing ${loadedCount} of ${totalDeliveries} deliveries.`;
+
+                // Show/Hide "Show More" button
+                if (loadedCount < totalDeliveries && data.currentPage < data.totalPages) {
+                    showMoreBtn.style.display = 'block';
+                    showMoreBtn.disabled = false;
+                    showMoreBtn.textContent = 'Show More (5)';
+                    currentPage++; // Agle page ke liye prepare karein
+                } else {
+                    showMoreBtn.style.display = 'none';
+                }
 
             } catch (err) {
                 console.error("Error loading deliveries:", err);
                 pendingList.innerHTML = `<li>Error loading deliveries: ${err.message}</li>`;
+            } finally {
+                isLoading = false;
             }
         }
 
-        // --- 3. QR Code Scanner Logic ---
+        // --- 5. QR Scanner Logic ---
+        function startScanner() {
+             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+             html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
+                .catch(err => console.log("Scanner start error:", err));
+        }
+       
         const qrCodeSuccessCallback = async (decodedText, decodedResult) => {
-             console.log(`Scan successful: ${decodedText}`); // Add log for debugging
+            try {
+                await html5QrCode.stop(); // Scanner rokein
+            } catch (err) {
+                console.warn("Scanner stop failed, maybe already stopped.", err);
+            }
+            
+            scanResultDiv.style.display = 'block';
+            scanResultDiv.className = 'message';
+            scanResultDiv.innerHTML = `Scanned: ${decodedText}. Processing...`;
 
-             // --- Try stopping scanner ---
-             try {
-                 // Check scanner state before stopping (Optional, library might handle)
-                 // if (html5QrCode && html5QrCode.isScanning) { // Note: isScanning might not be a public property, check library docs if needed
-                 await html5QrCode.stop(); // Use await if stop() returns a Promise
-                 console.log("Scanner stopped successfully.");
-                 // }
-             } catch (err) {
-                 console.warn("Could not stop scanner (maybe already stopped?):", err);
-                 // Don't stop execution if stopping fails
-             }
-             // --------------------------
-
-             if(scanResultDiv) {
-                scanResultDiv.style.display = 'block';
-                scanResultDiv.className = 'message';
-                scanResultDiv.innerHTML = `Scanned: ${decodedText}. Processing...`;
-             }
-
-            // --- (Rest of the logic: find delivery, update status, etc.) ---
             const delivery = currentDeliveries.find(d => d.trackingId === decodedText);
 
             if (delivery && delivery.currentStatus === 'Out for Delivery') {
-                // ... (logic to autofill completion form) ...
-                 if(scanResultDiv) {
-                     scanResultDiv.innerHTML = `Scanned ${decodedText}. Please enter Customer OTP below to complete.`;
-                     scanResultDiv.className = 'message success';
-                 }
-                 const completeTrackingIdEl = document.getElementById('complete-tracking-id');
-                 const completeOtpCodeEl = document.getElementById('complete-otp-code');
-                 if(completeTrackingIdEl) completeTrackingIdEl.value = decodedText;
-                 checkIfCod(decodedText);
-                 if(completeOtpCodeEl) completeOtpCodeEl.focus();
-
+                // Agar 'Out for Delivery' hai, toh yeh 'Complete' ke liye scan hai
+                scanResultDiv.innerHTML = `Scanned ${decodedText}. Please enter Customer OTP below to complete.`;
+                scanResultDiv.className = 'message success';
+                document.getElementById('manual-entry-card').style.display = 'block'; // Manual section kholein
+                document.getElementById('manual-tracking-id').value = decodedText; // ID auto-fill karein
+                checkIfCod(decodedText); // COD options check karein
+                document.getElementById('complete-otp-code').focus(); // OTP field par focus karein
             } else {
+                // Varna, yeh status update (Picked Up / Out for Delivery) ke liye scan hai
                  updateDeliveryStatus(decodedText, scanResultDiv);
             }
-            // -------------------------------------------------------------------
-
-             // --- Restart scanner after delay ---
-             console.log("Restarting scanner in 4 seconds...");
-             setTimeout(() => {
-                 console.log("Attempting to restart scanner now.");
-                 startScanner(); // Call startScanner again
-             }, 4000);
-             // ---------------------------------
+             setTimeout(startScanner, 4000); // 4 sec baad scanner phir se shuru karein
         };
-
-        // Also ensure startScanner doesn't call stop unnecessarily
-        function startScanner() {
-            const readerElement = document.getElementById("reader");
-            if (!readerElement || !html5QrCode) return;
-
-            // --- Remove any stop() call from here ---
-            // html5QrCode.stop().catch(()=>{}); // REMOVE THIS LINE IF PRESENT
-
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
-                .catch(err => { /* ... error handling ... */ });
-        }
-
-        // --- 4. Function to Update Status ---
+        
         async function updateDeliveryStatus(trackingId, resultDivElement) {
-            if(!resultDivElement) return; // Guard clause
             resultDivElement.innerHTML = `Updating status for ${trackingId}...`;
             resultDivElement.className = 'message';
              try {
@@ -299,130 +328,53 @@
                 if (response.ok) {
                     resultDivElement.className = 'message success';
                     resultDivElement.innerHTML = `Success! ${data.trackingId} is now ${data.status}.`;
-                    loadAssignedDeliveries(); // Refresh list
+                    loadAssignedDeliveries(true); // Poori list refresh karein
                 } else {
                     resultDivElement.className = 'message error';
-                    resultDivElement.innerHTML = `Error: ${data.message || `Server responded with ${response.status}`}`;
+                    resultDivElement.innerHTML = `Error: ${data.message || `Server error ${response.status}`}`;
                 }
             } catch (err) {
-                console.error("Update status error:", err);
                 resultDivElement.className = 'message error';
-                resultDivElement.innerHTML = `Error connecting to server.`;
+                resultDivElement.innerHTML = `Error: Could not connect to server.`;
             }
         }
 
-        // --- 5. Manual Entry Fallback ---
-         function toggleManualEntry() {
-             const manualDiv = document.getElementById('manual-entry');
-             if(manualDiv) {
-                manualDiv.style.display = (manualDiv.style.display === 'none' || manualDiv.style.display === '') ? 'block' : 'none';
-             }
-         }
-
-        // --- 6. Payment QR Modal ---
-        // --- 6. Payment QR Modal ---
-        function showPaymentQr(amount, trackingId) {
-            console.log("showPaymentQr called with amount:", amount, " trackingId:", trackingId); // <-- ADD Log 1
-            const qrModal = document.getElementById('qr-modal');
-            const qrAmountEl = document.getElementById('qr-amount');
-            const qrCodeEl = document.getElementById('payment-qrcode');
-
-            // Guard clause
-            if(!qrModal || !qrAmountEl || !qrCodeEl) {
-                console.error("QR Modal elements not found!");
-                alert("Could not display QR code popup.");
-                return;
-            }
-
-            const upiID = 'mab.037325040420024@axisbank';
-            const merchantName = 'Sahyog Medical'.replace(/ /g, '%20');
-            // Ensure amount is a valid number for QR code
-            const validAmount = parseFloat(amount);
-             if (isNaN(validAmount) || validAmount <= 0) {
-                 console.error("Invalid amount for QR code:", amount);
-                 alert("Cannot generate QR code for invalid amount.");
+        // --- 6. Manual Entry & Completion Logic ---
+        function toggleManualEntry() {
+            const manualDiv = document.getElementById('manual-entry-card');
+            manualDiv.style.display = (manualDiv.style.display === 'none' || manualDiv.style.display === '') ? 'block' : 'none';
+        }
+        
+        function handleManualUpdate() {
+             const trackingId = document.getElementById('manual-tracking-id').value;
+             if (!trackingId) {
+                 manualResultDiv.textContent = 'Please enter Tracking ID.';
+                 manualResultDiv.className = 'message error';
+                 manualResultDiv.style.display = 'block';
                  return;
              }
-            const upiQrString = `upi://pay?pa=${upiID}&pn=${merchantName}&am=${validAmount.toFixed(2)}&cu=INR&tn=Order-${trackingId}`; // Use validAmount
-            console.log("Generated UPI String:", upiQrString); // <-- ADD Log 2
-
-            qrAmountEl.textContent = validAmount.toFixed(2);
-            qrCodeEl.innerHTML = ''; // Clear previous QR
-            try {
-                console.log("Attempting to generate QR code..."); // <-- ADD Log 3
-                new QRCode(qrCodeEl, {
-                    text: upiQrString,
-                    width: 256,
-                    height: 256,
-                    correctLevel: QRCode.CorrectLevel.M // M level is often sufficient
-                });
-                console.log("Attempting to show modal..."); // <-- ADD Log 4
-                qrModal.style.display = 'flex';
-            } catch(e) {
-                console.error("Error generating payment QR:", e);
-                alert("Could not generate payment QR code. See console.");
-            }
+             manualResultDiv.style.display = 'block';
+             updateDeliveryStatus(trackingId, manualResultDiv);
         }
-
-        // --- 7. Check if COD for Completion ---
-        async function checkIfCod(trackingId) {
-            const codOptions = document.getElementById('cod-payment-options');
-            if (!codOptions) return; // Guard clause
-            codOptions.style.display = 'none'; // Hide by default
-
-            if (!trackingId) return;
-
-            try {
-                // Use the main delivery data if already loaded
-                const delivery = currentDeliveries.find(d => d.trackingId === trackingId);
-                if (delivery) {
-                    if (delivery.paymentMethod === 'COD' && delivery.currentStatus === 'Out for Delivery') {
-                         codOptions.style.display = 'block';
-                     }
-                } else {
-                    // Fallback to fetch if not in current list (less efficient)
-                    const response = await fetch(`/track/${trackingId}`);
-                     if (!response.ok) return; // Don't show options if track fails
-                    const data = await response.json();
-                    if (data.paymentMethod === 'COD' && data.currentStatus === 'Out for Delivery') {
-                         codOptions.style.display = 'block';
-                     }
-                }
-            } catch (err) {
-                 console.error("Error checking COD status:", err);
-                 codOptions.style.display = 'none';
-            }
-        }
-
-        // --- 8. Complete Delivery (OTP) Logic ---
-        async function completeDeliveryHandler() { // Renamed function
-             const trackingIdEl = document.getElementById('complete-tracking-id');
-             const otpEl = document.getElementById('complete-otp-code');
-             const codOptionsDiv = document.getElementById('cod-payment-options');
-             const payCashEl = document.getElementById('pay-cash');
-             const payOnlineEl = document.getElementById('pay-online');
-
-             // Guard clauses for elements
-             if (!trackingIdEl || !otpEl || !codOptionsDiv || !completeResultDiv) return;
-
-             const trackingId = trackingIdEl.value;
-             const otp = otpEl.value;
-
+        
+        async function handleCompleteDelivery() {
+             const trackingId = document.getElementById('manual-tracking-id').value; // Use the same tracking ID
+             const otp = document.getElementById('complete-otp-code').value;
              completeResultDiv.style.display = 'block';
              completeResultDiv.className = 'message';
              completeResultDiv.innerHTML = 'Verifying OTP...';
 
             let paymentReceivedMethod = null;
+            const codOptionsDiv = document.getElementById('cod-payment-options');
              if (codOptionsDiv.style.display === 'block') {
-                 if (payCashEl && payCashEl.checked) paymentReceivedMethod = 'cash';
-                 else if (payOnlineEl && payOnlineEl.checked) paymentReceivedMethod = 'online';
+                 if (document.getElementById('pay-cash').checked) paymentReceivedMethod = 'cash';
+                 else if (document.getElementById('pay-online').checked) paymentReceivedMethod = 'online';
                  else {
                      completeResultDiv.className = 'message error';
                      completeResultDiv.innerHTML = 'Please select payment method (Cash or Online).';
                      return;
                  }
              }
-
              if (!trackingId || !otp) {
                  completeResultDiv.className = 'message error';
                  completeResultDiv.innerHTML = 'Please enter Tracking ID and OTP.';
@@ -438,42 +390,96 @@
                  if (response.ok) {
                     completeResultDiv.className = 'message success';
                     completeResultDiv.innerHTML = `Success! ${data.trackingId} is ${data.status}.`;
-                    loadAssignedDeliveries();
-                    // Clear fields
-                    trackingIdEl.value = '';
-                    otpEl.value = '';
+                    loadAssignedDeliveries(true); // List refresh karein
+                    document.getElementById('manual-tracking-id').value = '';
+                    document.getElementById('complete-otp-code').value = '';
                     codOptionsDiv.style.display = 'none';
-                    if(payCashEl) payCashEl.checked = false;
-                    if(payOnlineEl) payOnlineEl.checked = false;
+                    if(document.getElementById('pay-cash')) document.getElementById('pay-cash').checked = false;
+                    if(document.getElementById('pay-online')) document.getElementById('pay-online').checked = false;
                  } else {
                     completeResultDiv.className = 'message error';
-                    completeResultDiv.innerHTML = `Error: ${data.message || `Server responded with ${response.status}`}`;
+                    completeResultDiv.innerHTML = `Error: ${data.message || `Server error ${response.status}`}`;
                  }
              } catch (err) {
-                console.error("Complete delivery error:", err);
                 completeResultDiv.className = 'message error';
                 completeResultDiv.innerHTML = 'Error connecting to server.';
              }
-        };
+        }
+        
+        async function checkIfCod(trackingId) {
+            const codOptions = document.getElementById('cod-payment-options');
+            if (!codOptions) return;
+            codOptions.style.display = 'none';
+            if (!trackingId) return;
+            
+            const delivery = currentDeliveries.find(d => d.trackingId === trackingId);
+            if (delivery) {
+                if (delivery.paymentMethod === 'COD' && delivery.currentStatus === 'Out for Delivery') {
+                     codOptions.style.display = 'block';
+                }
+            } else {
+                // Fallback agar list mein nahi hai (optional, but good)
+                try {
+                    const response = await fetch(`/track/${trackingId}`);
+                    const data = await response.json();
+                    if (data.paymentMethod === 'COD' && data.currentStatus === 'Out for Delivery') {
+                         codOptions.style.display = 'block';
+                    }
+                } catch (err) { console.error("Error checking COD status via fallback:", err); }
+            }
+        }
 
-        // --- 9. Push Notification ---
-        async function enableNotificationsHandler() { // Renamed function
+        // --- 7. Payment QR Modal (Dynamic UPI) ---
+        function showPaymentQr(amount, trackingId) {
+            const qrModal = document.getElementById('qr-modal');
+            const qrAmountEl = document.getElementById('qr-amount');
+            const qrCodeEl = document.getElementById('payment-qrcode');
+            
+            // --- Naya Dynamic UPI Logic ---
+            const upiID = businessSettings.upiId;
+            const merchantName = (businessSettings.upiName || 'Sahyog Medical').replace(/ /g, '%20');
+            
+            if (!upiID) {
+                alert('UPI ID not set. Please contact admin.');
+                return;
+            }
+            // -----------------------------
+            
+            const validAmount = parseFloat(amount);
+            if (isNaN(validAmount) || validAmount <= 0) {
+                 alert("Cannot generate QR code for invalid amount.");
+                 return;
+            }
+            const upiQrString = `upi://pay?pa=${upiID}&pn=${merchantName}&am=${validAmount.toFixed(2)}&cu=INR&tn=Order-${trackingId}`;
+            
+            qrAmountEl.textContent = validAmount.toFixed(2);
+            qrCodeEl.innerHTML = ''; // Purana QR saaf karein
+            try {
+                new QRCode(qrCodeEl, { text: upiQrString, width: 256, height: 256 });
+                qrModal.style.display = 'flex';
+            } catch(e) {
+                alert("Could not generate payment QR code.");
+            }
+        }
+
+        // --- 8. Push Notification ---
+        async function enableNotificationsHandler() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 try {
                     const reg = await navigator.serviceWorker.register('/service-worker.js');
                     const sub = await reg.pushManager.getSubscription();
                     if (sub) {
-                        alert('You are already subscribed to notifications.');
+                        alert('Notifications are already enabled.');
                     } else {
                         const publicKeyRes = await fetch('/vapid-public-key');
                         if (!publicKeyRes.ok) throw new Error("Could not fetch VAPID key");
                         const publicKey = await publicKeyRes.text();
-
+                        
                         const newSub = await reg.pushManager.subscribe({
                             userVisibleOnly: true,
-                            applicationServerKey: publicKey // Use the fetched key
+                            applicationServerKey: publicKey
                         });
-
+                        
                         const subscribeResponse = await fetch('/subscribe', { method: 'POST', headers: headers, body: JSON.stringify(newSub) });
                          if (!subscribeResponse.ok) throw new Error("Failed to save subscription on server");
                         alert('Notifications enabled successfully!');
@@ -487,8 +493,8 @@
             }
         };
 
-        // --- 10. Logout ---
-        function logoutHandler() { // Renamed function
+        // --- 9. Logout ---
+        function logoutHandler() {
             localStorage.clear();
             window.location.href = '/login';
         };

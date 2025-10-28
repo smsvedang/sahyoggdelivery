@@ -552,7 +552,7 @@ app.get('/vapid-public-key', (req, res) => res.send(VAPID_PUBLIC_KEY));
 
 // --- 11. Business Settings Management (Admin Only) ---
 // Get business settings
-app.get('/admin/settings', auth(['admin']), async (req, res) => {
+app.get('/admin/settings', auth(['admin', 'delivery']), async (req, res) => {
     try {
         let settings = await BusinessSettings.findOne(); if (!settings) { settings = await BusinessSettings.create({}); } res.json(settings);
     } catch (error) { console.error('Error fetching settings:', error); res.status(500).json({ message: 'Error fetching settings' }); }
