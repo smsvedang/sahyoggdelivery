@@ -554,28 +554,28 @@
             if (qrEl && trackingId) { qrEl.innerHTML=''; try { new QRCode(qrEl, { text: trackingId, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H }); return true; } catch (e) { console.error("QR Error:", e); qrEl.innerHTML='QR Err'; } } else { console.error("QR Placeholder/ID missing."); } return false;
         }
         function setupActionButtons(trackingId, otp, phone) {
-            console.log("Setting up action buttons for:", trackingId); // Added log
+            console.log("Setting up action buttons for:", trackingId);
             const shareBtn = document.getElementById('share-btn');
             const printBtn = document.getElementById('print-btn');
 
             if (shareBtn) {
                 shareBtn.onclick = null; // Remove previous listener
                 shareBtn.onclick = async () => {
-                    console.log("Share button clicked!"); // Added log
+                    console.log("Share button clicked!");
                     const shareText = `Thanks for choosing Sahyog Medical!\nYour Tracking ID: ${trackingId}\nYour OTP for delivery: ${otp}\nTrack here: ${window.location.origin}/track`;
                     if (navigator.share) {
-                        console.log("Attempting navigator.share..."); // Added log
+                        console.log("Attempting navigator.share...");
                         try { await navigator.share({ title: 'Your Order is Booked!', text: shareText }); console.log('Shared OK'); }
                         catch (err) {
                             console.error("Share failed:", err);
                             if (navigator.clipboard) {
-                                console.log("Falling back to clipboard..."); // Added log
+                                console.log("Falling back to clipboard...");
                                 try { await navigator.clipboard.writeText(shareText); alert('Details copied!'); }
                                 catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log("Manual Copy:\n", shareText); }
                             } else { alert('Share/Copy failed.'); console.log("Manual Copy:\n", shareText); }
                         }
                     } else if (navigator.clipboard) {
-                        console.log("Attempting clipboard directly..."); // Added log
+                        console.log("Attempting clipboard directly...");
                         try { await navigator.clipboard.writeText(shareText); alert('Details copied!'); }
                         catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log("Manual Copy:\n", shareText); }
                     } else { alert('Share/Copy failed.'); console.log("Manual Copy:\n", shareText); }
@@ -587,7 +587,7 @@
             } else { console.error("#print-btn missing!"); }
         }
         function printLabelInternal() {
-            console.log("Print label button clicked"); // Added log
+            console.log("Print label button clicked");
             const label = document.getElementById('label');
             if (!label || label.style.display === 'none') {
                  alert("Generate label first.");
@@ -608,63 +608,130 @@
 
         // --- 11. Business Settings Logic ---
         async function loadBusinessSettings() { // Loads when tab is opened
-            const resultDiv=document.getElementById('settings-result'),logoPreview=document.getElementById('logo-preview'); if(!resultDiv||!logoPreview)return;
-            resultDiv.textContent='Loading...';resultDiv.className='message';
-            try{const r=await fetch('/admin/settings',{headers});if(r.status===401){window.location.href='/login';return}if(!r.ok)throw new Error(`HTTP ${r.status}`); const s=await r.json(); businessSettings=s;
-            const nameEl=document.getElementById('business-name'),addrEl=document.getElementById('business-address'),phoneEl=document.getElementById('business-phone'),logoUrlEl=document.getElementById('business-logo-url'),upiIdEl=document.getElementById('upi-id'),upiNameEl=document.getElementById('upi-name');
-            if(nameEl)nameEl.value=s.businessName||''; if(addrEl)addrEl.value=s.businessAddress||''; if(phoneEl)phoneEl.value=s.businessPhone||''; if(logoUrlEl)logoUrlEl.value=s.logoUrl||''; if(upiIdEl)upiIdEl.value=s.upiId||''; if(upiNameEl)upiNameEl.value=s.upiName||'';
-            if(s.logoUrl){logoPreview.src=s.logoUrl;logoPreview.style.display='block'}else{logoPreview.style.display='none'} resultDiv.textContent='';
-            }catch(e){console.error("Load settings error:",e);resDiv.textContent=`Error: ${e.message}`;resDiv.className='message error'}
+            const resultDiv=document.getElementById('settings-result');
+            const logoPreview=document.getElementById('logo-preview');
+            if(!resultDiv || !logoPreview) { console.error("Settings elements missing!"); return; } // Added check
+            resultDiv.textContent='Loading settings...'; resultDiv.className='message';
+            try {
+                const r = await fetch('/admin/settings',{headers});
+                if (r.status===401) { window.location.href='/login'; return; }
+                if (!r.ok) throw new Error(`HTTP error ${r.status}`);
+                const s = await r.json();
+                businessSettings = s; // Update global settings variable
+                console.log("Loaded Settings:", s); // Log loaded settings
+
+                // Populate form fields, check if elements exist
+                const nameEl=document.getElementById('business-name');
+                const addrEl=document.getElementById('business-address');
+                const phoneEl=document.getElementById('business-phone');
+                const logoUrlEl=document.getElementById('business-logo-url');
+                const upiIdEl=document.getElementById('upi-id');
+                const upiNameEl=document.getElementById('upi-name');
+
+                if(nameEl) nameEl.value=s.businessName || '';
+                if(addrEl) addrEl.value=s.businessAddress || '';
+                if(phoneEl) phoneEl.value=s.businessPhone || '';
+                if(logoUrlEl) logoUrlEl.value=s.logoUrl || '';
+                if(upiIdEl) upiIdEl.value=s.upiId || '';
+                if(upiNameEl) upiNameEl.value=s.upiName || '';
+
+                if(s.logoUrl) { logoPreview.src=s.logoUrl; logoPreview.style.display='block'; }
+                else { logoPreview.style.display='none'; }
+                resultDiv.textContent=''; // Clear loading message
+            } catch(e) {
+                console.error("Load settings error:",e);
+                resultDiv.textContent=`Error loading settings: ${e.message}`; resultDiv.className='message error';
+            }
         }
         async function loadBusinessSettingsOnLoad() { // Loads once on page load
              try {
                 const response = await fetch('/admin/settings', { headers });
-                if (response.ok) { businessSettings = await response.json(); console.log("Settings loaded:", businessSettings); }
-                else { console.error("Failed initial settings load"); }
-            } catch (err) { console.error("Initial settings load error:", err); }
+                if (response.ok) {
+                    businessSettings = await response.json();
+                    console.log("Initial settings loaded:", businessSettings);
+                } else {
+                     console.error("Failed to load initial business settings. Status:", response.status);
+                }
+            } catch (err) {
+                console.error("Network error loading initial business settings:", err);
+            }
         }
         async function handleBusinessSettingsSubmit(e) {
-            e.preventDefault(); const btn=e.target.querySelector('button[type="submit"]'),resDiv=document.getElementById('settings-result'),logoPre=document.getElementById('logo-preview'); if(!btn||!resDiv||!logoPre)return;
-            btn.disabled=true;btn.textContent='Saving...';resDiv.textContent='';resDiv.className='message';
-            const data={businessName:e.target.elements['business-name'].value,businessAddress:e.target.elements['business-address'].value,businessPhone:e.target.elements['business-phone'].value,logoUrl:e.target.elements['business-logo-url'].value,upiId:e.target.elements['upi-id'].value,upiName:e.target.elements['upi-name'].value};
-            try{const r=await fetch('/admin/settings',{method:'PUT',headers,body:JSON.stringify(data)}); const d=await r.json();
-            if(r.ok){resDiv.textContent=d.message||'Saved!';resDiv.className='message success';businessSettings=d.settings||data; if(businessSettings.logoUrl){logoPre.src=businessSettings.logoUrl;logoPre.style.display='block'}else{logoPre.style.display='none'}}
-            else{resDiv.textContent=`Error: ${d.message||'Save failed.'}`;resDiv.className='message error'}
-            }catch(e){console.error("Save settings error:",e);resDiv.textContent=`Server error: ${e.message}`;resDiv.className='message error'}
-            finally{btn.disabled=false;btn.textContent='Save Settings';setTimeout(()=>{if(resDiv)resDiv.textContent=''},3000)}
+            e.preventDefault();
+            const form = e.target;
+            const btn = form.querySelector('button[type="submit"]');
+            const resDiv = document.getElementById('settings-result');
+            const logoPre = document.getElementById('logo-preview');
+            if(!btn || !resDiv || !logoPre) return;
+
+            btn.disabled=true; btn.textContent='Saving...';
+            resDiv.textContent=''; resDiv.className='message';
+            const data = {
+                businessName: form.elements['business-name'].value,
+                businessAddress: form.elements['business-address'].value,
+                businessPhone: form.elements['business-phone'].value,
+                logoUrl: form.elements['business-logo-url'].value,
+                upiId: form.elements['upi-id'].value,
+                upiName: form.elements['upi-name'].value
+            };
+            console.log("Saving settings:", data); // Log data being saved
+            try {
+                const r = await fetch('/admin/settings',{method:'PUT',headers,body:JSON.stringify(data)});
+                const d = await r.json();
+                if (r.ok) {
+                    resDiv.textContent = d.message || 'Settings saved successfully!';
+                    resDiv.className = 'message success';
+                    businessSettings = d.settings || data; // Update global settings
+                    console.log("Updated settings:", businessSettings);
+                    if (businessSettings.logoUrl) { logoPre.src=businessSettings.logoUrl; logoPre.style.display='block'; }
+                    else { logoPre.style.display='none'; }
+                } else {
+                    resDiv.textContent=`Error: ${d.message || 'Failed to save settings.'}`;
+                    resDiv.className='message error';
+                }
+            } catch(e) {
+                console.error("Save settings error:", e);
+                resDiv.textContent=`Server error: ${e.message}`; resDiv.className='message error';
+            } finally {
+                btn.disabled = false; btn.textContent = 'Save Settings';
+                setTimeout(() => { if(resDiv) resDiv.textContent = ''; }, 3000); // Clear message after 3s
+            }
         }
 
         // --- 12. Bulk Action Helper Functions ---
-        function getSelectedDeliveryIds(){
+        function getSelectedDeliveryIds() {
             const ids=[];
-            document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').forEach(cb=>ids.push(cb.value));
+            document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').forEach(cb => ids.push(cb.value));
             return ids;
         }
-        function updateSelectionCount(){
-            const count=document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').length;
-            const countSpan=document.getElementById('selection-count');
-            const selAll=document.getElementById('select-all-checkbox');
-            const allCb=document.querySelectorAll('#all-deliveries-body .delivery-checkbox');
-            if(countSpan) countSpan.textContent=`(${count} selected)`;
-            if(selAll && allCb.length > 0){
-                selAll.checked=(count === allCb.length);
-                selAll.indeterminate=(count > 0 && count < allCb.length);
-            } else if(selAll){
+        function updateSelectionCount() {
+            const count = document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').length;
+            const countSpan = document.getElementById('selection-count');
+            const selAll = document.getElementById('select-all-checkbox');
+            const allCb = document.querySelectorAll('#all-deliveries-body .delivery-checkbox');
+            // Ensure elements exist
+            if (countSpan) countSpan.textContent = `(${count} selected)`;
+            if (selAll && allCb.length > 0) {
+                selAll.checked = (count === allCb.length);
+                selAll.indeterminate = (count > 0 && count < allCb.length);
+            } else if (selAll) {
                 selAll.checked = false;
                 selAll.indeterminate = false;
             }
         }
-        function handleSelectAll(e){
+        function handleSelectAll(e) {
+            // Ensure event and target exist
+            if (!e || !e.target) return;
             document.querySelectorAll('#all-deliveries-body .delivery-checkbox').forEach(cb => {
-                cb.checked=e.target.checked;
+                cb.checked = e.target.checked;
             });
             updateSelectionCount();
         }
 
         // --- 13. Bulk Action Handlers ---
-        function handleBulkReprint(){
-            const ids=getSelectedDeliveryIds();
-            if(ids.length===0){ alert("Please select deliveries to reprint."); return; }
+        function handleBulkReprint() {
+            const ids = getSelectedDeliveryIds();
+            if (ids.length === 0) { alert("Please select deliveries to reprint."); return; }
             console.log("Generating bulk print for IDs:", ids);
 
             let combinedLabelsHtml = '';
@@ -675,12 +742,9 @@
                 if (!delivery) { console.warn(`Data not found for ID: ${id}`); return; }
 
                 const qrPlaceholderId = `bulk-qr-${id}-${Date.now()}`;
-                // Add page break style for all labels in bulk print
                 const pageBreakStyle = index > 0 ? 'page-break-before: always; margin-top: 10mm;' : 'margin-top: 0;';
 
-                // Use the helper function to generate HTML for this label
-                // Add the wrapper div with page break style
-                combinedLabelsHtml += `<div class="label-print-instance" style="${pageBreakStyle}">`; // Added class
+                combinedLabelsHtml += `<div class="label-print-instance" style="${pageBreakStyle}">`;
                 combinedLabelsHtml += generateSingleLabelHtml(
                     delivery.customerName, delivery.customerAddress, delivery.trackingId,
                     delivery.paymentMethod, delivery.customerPhone, qrPlaceholderId
@@ -699,9 +763,9 @@
                     body { margin: 5mm; }
                     @media print {
                         body { margin: 0; }
-                        .label-print-instance { page-break-before: always; margin: 5mm !important; } /* Simplified print margin */
-                        .label-print-instance:first-child { page-break-before: avoid; margin-top: 5mm !important; } /* Ensure first label has margin */
-                        .label-grid-container { border: 1.5px solid black !important; } /* Ensure border prints */
+                        .label-print-instance { page-break-before: always; margin: 5mm !important; }
+                        .label-print-instance:first-child { page-break-before: avoid; margin-top: 5mm !important; }
+                        .label-grid-container { border: 1.5px solid black !important; }
                          -webkit-print-color-adjust: exact; print-color-adjust: exact;
                     }
                 </style>
@@ -713,7 +777,7 @@
                             const el = document.getElementById(task.id);
                             if (el && task.text) {
                                 try { new QRCode(el, { text: task.text, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H }); }
-                                catch (e) { console.error("QR Error:", e); el.innerHTML = 'QR Error'; }
+                                catch (e) { console.error("QR Error:", e); if(el) el.innerHTML = 'QR Error'; }
                             }
                         });
                         setTimeout(() => { window.print(); }, 500);
@@ -722,24 +786,48 @@
             `);
             printWindow.document.close();
 
+            // Deselect checkboxes after initiating print
             const selectAll = document.getElementById('select-all-checkbox');
             if(selectAll) selectAll.checked = false;
             document.querySelectorAll('.delivery-checkbox:checked').forEach(cb => cb.checked = false);
             updateSelectionCount();
         }
-        async function handleBulkCancel(){
-            const ids=getSelectedDeliveryIds();
-            if(ids.length===0){ alert("Select deliveries."); return; }
-            if(!confirm(`Cancel ${ids.length} deliveries?`)) return;
-            try{const r=await fetch('/admin/deliveries/bulk-cancel',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Bulk cancel failed'); alert(`Cancelled ${d.cancelledCount||ids.length}.`); loadAllDeliveries(); const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;updateSelectionCount();}catch(e){console.error("Bulk cancel:",e);alert(`Error: ${e.message}`)}
+        async function handleBulkCancel() {
+            const ids = getSelectedDeliveryIds();
+            if (ids.length === 0) { alert("Please select deliveries to cancel."); return; }
+            if (!confirm(`Are you sure you want to cancel ${ids.length} selected deliveries?`)) return;
+            console.log("Cancelling deliveries:", ids);
+            try {
+                const r = await fetch('/admin/deliveries/bulk-cancel',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})});
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.message || 'Bulk cancel failed');
+                alert(`Successfully cancelled ${d.cancelledCount || 0} deliveries.`); // Use 0 if count missing
+                loadAllDeliveries(); // Refresh list
+                const sa = document.getElementById('select-all-checkbox'); if(sa)sa.checked=false; // Uncheck select all
+                updateSelectionCount(); // Reset count display
+            } catch(e) {
+                console.error("Bulk cancel error:",e);
+                alert(`Error during bulk cancel: ${e.message}`);
+            }
         }
-        async function handleBulkDelete(){
-            const ids=getSelectedDeliveryIds();
-            if(ids.length===0){ alert("Select deliveries."); return; }
-            if(!confirm(`DELETE ${ids.length} records permanently?`)) return;
-            try{const r=await fetch('/admin/deliveries/bulk-delete',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Bulk delete failed'); alert(`Deleted ${d.deletedCount||ids.length}.`); loadAllDeliveries(); const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;updateSelectionCount();}catch(e){console.error("Bulk delete:",e);alert(`Error: ${e.message}`)}
+        async function handleBulkDelete() {
+            const ids = getSelectedDeliveryIds();
+            if (ids.length === 0) { alert("Please select deliveries to delete."); return; }
+            if (!confirm(`DANGER! Are you sure you want to permanently DELETE ${ids.length} selected delivery records?`)) return;
+            console.log("Deleting deliveries:", ids);
+             try {
+                const r = await fetch('/admin/deliveries/bulk-delete',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})});
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.message || 'Bulk delete failed');
+                alert(`Successfully deleted ${d.deletedCount || 0} deliveries.`); // Use 0 if count missing
+                loadAllDeliveries(); // Refresh list
+                const sa = document.getElementById('select-all-checkbox'); if(sa)sa.checked=false; // Uncheck select all
+                updateSelectionCount(); // Reset count display
+            } catch(e) {
+                console.error("Bulk delete error:",e);
+                alert(`Error during bulk delete: ${e.message}`);
+            }
         }
-
     </script>
 </body>
 </html>
