@@ -261,7 +261,7 @@
         Copyright © <span id="copyright-year"></span> Sahyog Medical. All Rights Reserved.
     </div>
 
-    <script>
+   <script>
         // --- 1. Global Variables & Constants ---
         const token = localStorage.getItem('authToken');
         const role = localStorage.getItem('userRole');
@@ -317,7 +317,7 @@
                 : `<strong>${businessSettings.businessName || 'Sahyog Medical'}</strong>`;
 
             return `
-                <div class="label-grid-container" style="border: 1.5px solid black; display: grid; grid-template-columns: 60% 40%; grid-template-rows: auto auto auto 1fr; width: 100mm; min-height: 140mm; height: auto; font-family: Arial, sans-serif; font-size: 10pt; background: white; margin-bottom: 5mm; page-break-inside: avoid;">
+                <div class="label-grid-container" style="border: 1.5px solid black; display: grid; grid-template-columns: 60% 40%; grid-template-rows: auto auto auto 1fr; width: 100mm; /* Fixed width for portrait */ min-height: 140mm; /* Minimum height */ height: auto; font-family: Arial, sans-serif; font-size: 10pt; background: white; margin-bottom: 5mm; page-break-inside: avoid;">
                     <style scoped>
                         *, *::before, *::after { box-sizing: border-box; }
                         .label-grid-container { border: 1.5px solid black !important; display: grid !important; grid-template-columns: 60% 40% !important; grid-template-rows: auto auto auto 1fr !important; width: 100mm !important; min-height: 140mm !important; height: auto !important; font-family: Arial, sans-serif !important; font-size: 10pt !important; background: white !important; margin: 0 !important; padding: 0 !important; page-break-inside: avoid !important; }
@@ -384,19 +384,11 @@
             if (printBtn) {
                  printBtn.onclick = () => {
                      // Find the delivery data using trackingId from closure
-                     // We find it in allDeliveriesData which should be populated by the booking's loadAllDeliveries()
                      const deliveryData = allDeliveriesData.find(d => d.trackingId === trackingId);
                      if (!deliveryData) {
-                         // Fallback using data passed to setupActionButtons if not found in global list
-                         console.warn("Could not find delivery in global data, using passed data for print.");
-                         // It's better to pass all required data explicitly if possible
-                         // Re-read from form as last resort (might be cleared)
-                         const name = document.getElementById('name').value;
-                         const address = document.getElementById('address').value;
-                         const paymentMethod = document.getElementById('paymentMethod').value;
-                         // Phone was passed directly, use it
-                         printSingleLabel(name, address, trackingId, paymentMethod, phone);
-                         return;
+                         console.warn("Using passed data for print.");
+                         const currentFormData = { name: document.getElementById('name').value, address: document.getElementById('address').value, paymentMethod: document.getElementById('paymentMethod').value };
+                         printSingleLabel(currentFormData.name, currentFormData.address, trackingId, currentFormData.paymentMethod, phone); return;
                      }
                      printSingleLabel(deliveryData.customerName, deliveryData.customerAddress, deliveryData.trackingId, deliveryData.paymentMethod, deliveryData.customerPhone);
                  };
@@ -424,6 +416,7 @@
             }
             window.print(); // Uses @media print CSS
         }
+
 
         // --- 11. Business Settings Logic ---
         async function loadBusinessSettings() { // Loads when tab is opened
@@ -453,136 +446,121 @@
             finally{btn.disabled=false;btn.textContent='Save Settings';setTimeout(()=>{if(resDiv)resDiv.textContent=''},3000)}
         }
 
-        // --- 12. Bulk Action Helper Functions ---
-        function getSelectedDeliveryIds(){
-            const ids=[];
-            document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').forEach(cb=>ids.push(cb.value));
-            return ids;
-        }
-        function updateSelectionCount(){
-            const count=document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').length;
-            const countSpan=document.getElementById('selection-count');
-            const selAll=document.getElementById('select-all-checkbox');
-            const allCb=document.querySelectorAll('#all-deliveries-body .delivery-checkbox');
-            if(countSpan) countSpan.textContent=`(${count} selected)`;
-            if(selAll && allCb.length > 0){
-                selAll.checked=(count === allCb.length);
-                selAll.indeterminate=(count > 0 && count < allCb.length);
-            } else if(selAll){
-                selAll.checked = false;
-                selAll.indeterminate = false;
-            }
-        }
-        function handleSelectAll(e){
-            if (!e || !e.target) return;
-            document.querySelectorAll('#all-deliveries-body .delivery-checkbox').forEach(cb => {
-                cb.checked=e.target.checked;
-            });
+        // --- 4. Load All Deliveries (Definition) ---
+        async function loadAllDeliveries() {
+            const tbody = document.getElementById('all-deliveries-body');
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
             updateSelectionCount();
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="11">Loading deliveries...</td></tr>';
+            try {
+                const response = await fetch('/admin/deliveries', { headers });
+                if (response.status === 401) { window.location.href = '/login'; return; }
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                const deliveries = await response.json();
+                allDeliveriesData = deliveries;
+                tbody.innerHTML = '';
+                if(deliveries.length === 0) { tbody.innerHTML = '<tr><td colspan="11" style="text-align: center;">No deliveries found.</td></tr>'; return; }
+                deliveries.forEach(d => {
+                    const row = tbody.insertRow(); row.style.verticalAlign = 'middle';
+                    const cellCheckbox = row.insertCell(0); const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.className = 'delivery-checkbox'; checkbox.value = d._id; cellCheckbox.appendChild(checkbox); cellCheckbox.style.width = '30px';
+                    row.insertCell(1).textContent = d.trackingId || 'N/A';
+                    row.insertCell(2).textContent = d.customerName || 'N/A';
+                    const cellStatus = row.insertCell(3); cellStatus.innerHTML = `<strong>${d.currentStatus || 'N/A'}</strong>`;
+                    row.insertCell(4).textContent = d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid';
+                    let codStatusText = 'N/A'; if (d.paymentMethod === 'COD') { codStatusText = d.codPaymentStatus || 'Pending'; } row.insertCell(5).textContent = codStatusText;
+                    row.insertCell(6).textContent = d.assignedByManager && d.assignedByManager.name ? d.assignedByManager.name : 'N/A';
+                    row.insertCell(7).textContent = d.assignedTo && d.assignedTo.name ? d.assignedTo.name : (d.assignedBoyDetails && d.assignedBoyDetails.name ? d.assignedBoyDetails.name + ' (Assigned)' : 'N/A');
+                    const cellOtp = row.insertCell(8); cellOtp.innerHTML = `<strong>${d.otp || 'N/A'}</strong>`;
+                    const date = new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric'}); row.insertCell(9).textContent = date;
+                    const cellActions = row.insertCell(10); const isCancelable = !['Delivered', 'Cancelled'].includes(d.currentStatus);
+                    cellActions.innerHTML = `<button class="btn-secondary btn-sm" onclick="reprintLabel('${d._id}')" title="Reprint Label">Reprint</button><button class="btn-warning btn-sm" onclick="cancelDelivery('${d._id}')" ${!isCancelable ? 'disabled title="Cannot cancel"' : 'title="Cancel Delivery"'}>Cancel</button><button class="btn-danger btn-sm" onclick="deleteDelivery('${d._id}')" title="Delete Record">Delete</button>`;
+                });
+            } catch (err) { console.error("Error loading deliveries:", err); tbody.innerHTML = `<tr><td colspan="11" style="color: red; text-align: center;">Error: ${err.message}</td></tr>`; }
         }
 
-        // --- 13. Bulk Action Handlers ---
+        // --- 5. Booking Form Submit Handler (Definition) ---
+        async function handleBookingSubmit(e) {
+             e.preventDefault();
+             const submitBtn = document.getElementById('submit-btn'); const resultDiv = document.getElementById('result'); const labelDiv = document.getElementById('label'); const actionButtonsDiv = document.getElementById('action-buttons');
+             if(!submitBtn || !resultDiv || !labelDiv || !actionButtonsDiv) return;
+             submitBtn.disabled = true; submitBtn.textContent = "Booking..."; resultDiv.innerHTML = '<p>Processing...</p>'; resultDiv.className = 'message'; labelDiv.style.display = 'none'; labelDiv.innerHTML = ''; actionButtonsDiv.style.display = 'none'; console.log("UI Reset.");
+             const formData = { name: document.getElementById('name').value, address: document.getElementById('address').value, phone: document.getElementById('phone').value, paymentMethod: document.getElementById('paymentMethod').value, billAmount: document.getElementById('billAmount').value || 0, managerId: document.getElementById('assignedTo').value || null }; console.log("Submitting:", formData);
+             try { console.log("POST /book..."); const response = await fetch('/book', { method: 'POST', headers, body: JSON.stringify(formData) }); console.log("Resp:", response.status, response.statusText);
+                 let data; try { const txt = await response.text(); console.log("Raw:", txt); data = JSON.parse(txt); console.log("JSON:", data); } catch (e) { console.error("JSON Err:", e); if (response.ok) throw new Error("OK but invalid JSON."); data = { message: `Err ${response.status}. Invalid JSON.` }; }
+                 if (response.ok) { console.log("Booking OK."); resultDiv.className = 'success'; resultDiv.innerHTML = `<strong>${data.message||'Success!'}</strong><br>ID: ${data.trackingId} | OTP: ${data.otp}`; console.log("Gen label...");
+                     // Call Preview function
+                     const labelGenerated = generateLabelPreview(formData.name, formData.address, data.trackingId, formData.paymentMethod, formData.phone);
+                     if (labelGenerated) { console.log("Label OK. Buttons..."); actionButtonsDiv.style.display = 'block'; setupActionButtons(data.trackingId, data.otp, formData.phone); } else { console.error("Label FAILED!"); resultDiv.innerHTML += '<br><span style="color:orange;">Warn: Label failed.</span>'; }
+                     loadAllDeliveries(); e.target.reset(); toggleBillAmount('Prepaid');
+                 } else { console.error("Server FAIL:", response.status, data.message); resultDiv.className = 'error'; resultDiv.innerHTML = `<strong>Failed:</strong> ${data.message || `Error ${response.status}`}`; }
+             } catch (error) { console.error("Booking catch Err:", error); resultDiv.className = 'error'; resultDiv.innerHTML = `<strong>Error:</strong> ${error.message || 'Connection failed.'}`; }
+             finally { submitBtn.disabled = false; submitBtn.textContent = "Book Courier"; console.log("Booking finally."); }
+        }
+
+        // --- 6. Manage Users Logic (Definitions) ---
+        async function loadAllUsers() {
+            const tbody = document.getElementById('users-body'); if (!tbody) return; tbody.innerHTML = '<tr><td colspan="6">Loading users...</td></tr>';
+            try { const r = await fetch('/admin/users',{headers}); if(r.status===401){window.location.href='/login';return} if(!r.ok)throw new Error(`HTTP ${r.status}`); const users = await r.json(); allUsersData = users; tbody.innerHTML=''; if(users.length===0){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;">No users.</td></tr>';return}
+                users.forEach(u=>{const row=tbody.insertRow(),sClass=u.isActive?'status-active':'status-inactive',btnTxt=u.isActive?'Deactivate':'Activate',btnClass=u.isActive?'btn-warning':'btn-success'; row.insertCell().textContent=u.name; row.insertCell().textContent=u.email; row.insertCell().textContent=u.phone||'N/A'; row.insertCell().textContent=u.role; row.insertCell().innerHTML=`<span class="${sClass}">${u.isActive?'Active':'Inactive'}</span>`; row.insertCell().innerHTML=`<button class="btn-secondary btn-sm" onclick="openEditUserModal('${u._id}')">Edit</button><button class="${btnClass} btn-sm" onclick="toggleUserActive('${u._id}')">${btnTxt}</button>`; });
+            } catch (e) { console.error("Load users error:", e); tbody.innerHTML=`<tr><td colspan="6" style="color:red;text-align:center;">Error: ${e.message}</td></tr>`; }
+        }
+        async function handleAddUserSubmit(e) {
+            e.preventDefault(); const resDiv = document.getElementById('add-user-result'); if(!resDiv)return; resDiv.textContent='Creating...';resDiv.className='message'; const formData={name:e.target.elements['add-user-name'].value,email:e.target.elements['add-user-email'].value,phone:e.target.elements['add-user-phone'].value,password:e.target.elements['add-user-password'].value,role:e.target.elements['add-user-role'].value};
+            try{const r=await fetch('/admin/create-user',{method:'POST',headers,body:JSON.stringify(formData)}); const d=await r.json(); if(r.ok){resDiv.textContent=d.message;resDiv.className='message success';e.target.reset();loadAllUsers();if(formData.role==='manager')loadManagersForDropdown();setTimeout(()=>closeModal('add-user-modal'),1500)} else{resDiv.textContent=`Error: ${d.message}`;resDiv.className='message error'} }catch(e){console.error("Add user error:",e);resDiv.textContent='Server error.';resDiv.className='message error'}
+        }
+        function openEditUserModal(userId) {
+            const user = allUsersData.find(u=>u._id===userId); if(!user)return; const idEl=document.getElementById('edit-user-id'),nameEl=document.getElementById('edit-user-name'),emailEl=document.getElementById('edit-user-email'),phoneEl=document.getElementById('edit-user-phone'),roleEl=document.getElementById('edit-user-role'),passEl=document.getElementById('edit-user-password'),resEl=document.getElementById('edit-user-result');
+            if(idEl)idEl.value=user._id; if(nameEl)nameEl.value=user.name; if(emailEl)emailEl.value=user.email; if(phoneEl)phoneEl.value=user.phone||''; if(roleEl)roleEl.value=user.role; if(passEl)passEl.value=''; if(resEl)resEl.textContent=''; openModal('user-edit-modal');
+        }
+        async function handleEditUserSubmit(e) {
+            e.preventDefault(); const userId=document.getElementById('edit-user-id').value,resDiv=document.getElementById('edit-user-result'); if(!userId||!resDiv)return; resDiv.textContent='Saving...';resDiv.className='message'; const uData={name:e.target.elements['edit-user-name'].value,email:e.target.elements['edit-user-email'].value,phone:e.target.elements['edit-user-phone'].value,role:e.target.elements['edit-user-role'].value}; const newPass=e.target.elements['edit-user-password'].value;
+            try{const rDet=await fetch(`/admin/user/${userId}`,{method:'PUT',headers,body:JSON.stringify(uData)}); if(!rDet.ok){const d=await rDet.json();throw new Error(d.message||'Update failed')} if(newPass&&newPass.trim()!==''){const rPass=await fetch(`/admin/user/${userId}/password`,{method:'PATCH',headers,body:JSON.stringify({password:newPass})}); if(!rPass.ok){const d=await rPass.json();throw new Error(d.message||'Pass update failed')}} resDiv.textContent='Updated!';resDiv.className='message success'; loadAllUsers();loadManagersForDropdown(); setTimeout(()=>closeModal('user-edit-modal'),1500);
+            }catch(e){console.error("Edit user error:",e);resDiv.textContent=`Error: ${e.message}`;resDiv.className='message error'}
+        }
+        async function toggleUserActive(userId) {
+             try{const r=await fetch(`/admin/user/${userId}/toggle-active`,{method:'PATCH',headers}); if(!r.ok){const d=await r.json();throw new Error(d.message||'Toggle failed')} const d=await r.json();console.log(d.message);loadAllUsers();loadManagersForDropdown();}
+             catch(e){console.error("Toggle active error:",e);alert(`Error: ${e.message}`)}
+        }
+
+        // --- 7. Delivery Actions (Definitions) ---
+        function reprintLabel(deliveryId) {
+            const delivery = allDeliveriesData.find(d => d._id === deliveryId); if (!delivery) { alert('Delivery data not found.'); return; }
+            // Call printSingleLabel for reprint, opens new window
+            printSingleLabel(delivery.customerName, delivery.customerAddress, delivery.trackingId, delivery.paymentMethod, delivery.customerPhone);
+        }
+        async function cancelDelivery(deliveryId) {
+            if(!confirm('Cancel this delivery?'))return; try{const r=await fetch(`/admin/delivery/${deliveryId}/cancel`,{method:'PATCH',headers}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Cancel failed'); alert(d.message);loadAllDeliveries();}catch(e){console.error("Cancel err:",e);alert(`Error: ${e.message}`)}
+        }
+        async function deleteDelivery(deliveryId) {
+             if(!confirm('DELETE record permanently?'))return; try{const r=await fetch(`/admin/delivery/${deliveryId}`,{method:'DELETE',headers}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Delete failed'); alert(d.message);loadAllDeliveries();}catch(e){console.error("Delete err:",e);alert(`Error: ${e.message}`)}
+        }
+
+        // --- 12. Bulk Action Helper Functions --- (Definitions)
+        function getSelectedDeliveryIds(){const ids=[];document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').forEach(cb=>ids.push(cb.value));return ids}
+        function updateSelectionCount(){const count=document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').length; const countSpan=document.getElementById('selection-count'); const selAll=document.getElementById('select-all-checkbox'); const allCb=document.querySelectorAll('#all-deliveries-body .delivery-checkbox'); if(countSpan)countSpan.textContent=`(${count} selected)`; if(selAll&&allCb.length>0){selAll.checked=(count===allCb.length);selAll.indeterminate=(count>0&&count<allCb.length)}else if(selAll){selAll.checked=false;selAll.indeterminate=false}}
+        function handleSelectAll(e){if(!e||!e.target)return; document.querySelectorAll('#all-deliveries-body .delivery-checkbox').forEach(cb=>{cb.checked=e.target.checked});updateSelectionCount()}
+
+        // --- 13. Bulk Action Handlers --- (Definitions)
         function handleBulkReprint(){
-            const ids = getSelectedDeliveryIds();
-            if (ids.length === 0) { alert("Please select deliveries to reprint."); return; }
-            console.log("Generating bulk print for IDs:", ids);
-
-            let combinedLabelsHtml = '';
-            let qrCodeTasks = [];
-
-            ids.forEach((id, index) => {
-                const delivery = allDeliveriesData.find(d => d._id === id);
-                if (!delivery) { console.warn(`Data not found for ID: ${id}`); return; }
-
-                const qrPlaceholderId = `bulk-qr-${id}-${Date.now()}`;
-                const pageBreakStyle = index > 0 ? 'page-break-before: always; margin-top: 10mm;' : 'margin-top: 0;';
-
-                combinedLabelsHtml += `<div class="label-print-instance" style="${pageBreakStyle}">`;
-                combinedLabelsHtml += generateSingleLabelHtml(
-                    delivery.customerName, delivery.customerAddress, delivery.trackingId,
-                    delivery.paymentMethod, delivery.customerPhone, qrPlaceholderId
-                );
-                combinedLabelsHtml += `</div>`;
-                qrCodeTasks.push({ id: qrPlaceholderId, text: delivery.trackingId });
-            });
-
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
-            if (!printWindow) { alert("Please allow popups for bulk print."); return; }
-
-            printWindow.document.write(`
-                <html><head><title>Print Labels</title>
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
-                <style>
-                    body { margin: 5mm; }
-                    @media print {
-                        body { margin: 0; }
-                        .label-print-instance { page-break-before: always; margin: 5mm !important; }
-                        .label-print-instance:first-child { page-break-before: avoid; margin-top: 5mm !important; }
-                        .label-grid-container { border: 1.5px solid black !important; }
-                         -webkit-print-color-adjust: exact; print-color-adjust: exact;
-                    }
-                </style>
-                </head><body>
-                    ${combinedLabelsHtml}
-                    <script>
-                        const qrTasks = ${JSON.stringify(qrCodeTasks)};
-                        qrTasks.forEach(task => {
-                            const el = document.getElementById(task.id);
-                            if (el && task.text) {
-                                try { new QRCode(el, { text: task.text, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H }); }
-                                catch (e) { console.error("QR Error:", e); if(el) el.innerHTML = 'QR Error'; }
-                            }
-                        });
-                        setTimeout(() => { window.print(); }, 500);
-                    <\/script>
-                </body></html>
-            `);
-            printWindow.document.close();
-
-            const selectAll = document.getElementById('select-all-checkbox');
-            if(selectAll) selectAll.checked = false;
-            document.querySelectorAll('.delivery-checkbox:checked').forEach(cb => cb.checked = false);
-            updateSelectionCount();
+            const ids = getSelectedDeliveryIds(); if(ids.length === 0){ alert("Select deliveries."); return; } console.log("Bulk print:", ids);
+            let combinedLabelsHtml = ''; let qrCodeTasks = [];
+            ids.forEach((id, index) => { const delivery = allDeliveriesData.find(d => d._id === id); if (!delivery) { console.warn(`Data missing: ${id}`); return; } const qrPlaceholderId = `bulk-qr-${id}-${Date.now()}`; const pageBreak = index > 0 ? 'page-break-before: always; margin-top: 10mm;' : 'margin-top: 0;'; combinedLabelsHtml += `<div class="label-print-instance" style="${pageBreak}">`; combinedLabelsHtml += generateSingleLabelHtml( delivery.customerName, delivery.customerAddress, delivery.trackingId, delivery.paymentMethod, delivery.customerPhone, qrPlaceholderId ); combinedLabelsHtml += `</div>`; qrCodeTasks.push({ id: qrPlaceholderId, text: delivery.trackingId }); });
+            const printWindow = window.open('', '_blank', 'width=800,height=600'); if (!printWindow) { alert("Allow popups."); return; }
+            printWindow.document.write(`<html><head><title>Print Labels</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>body{margin:5mm}@media print{body{margin:0}.label-print-instance{page-break-before:always;margin:5mm !important}.label-print-instance:first-child{page-break-before:avoid;margin-top:5mm !important}.label-grid-container{border:1.5px solid black !important} -webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>${combinedLabelsHtml}<script>const qrTasks=${JSON.stringify(qrCodeTasks)};qrTasks.forEach(t=>{const el=document.getElementById(t.id);if(el&&t.text){try{new QRCode(el,{text:t.text,width:100,height:100,correctLevel:QRCode.CorrectLevel.H})}catch(e){console.error("QR Error:",e);if(el)el.innerHTML='QR Err'}}});setTimeout(()=>{window.print()},500);<\/script></body></html>`); printWindow.document.close();
+            const selectAll = document.getElementById('select-all-checkbox'); if(selectAll)selectAll.checked=false; document.querySelectorAll('.delivery-checkbox:checked').forEach(cb=>cb.checked=false); updateSelectionCount();
         }
         async function handleBulkCancel(){
-            const ids = getSelectedDeliveryIds();
-            if (ids.length === 0) { alert("Please select deliveries to cancel."); return; }
-            if (!confirm(`Are you sure you want to cancel ${ids.length} selected deliveries?`)) return;
-            console.log("Cancelling deliveries:", ids);
-            try {
-                const r = await fetch('/admin/deliveries/bulk-cancel',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})});
-                const d = await r.json();
-                if (!r.ok) throw new Error(d.message || 'Bulk cancel failed');
-                alert(`Successfully cancelled ${d.cancelledCount || 0} deliveries.`);
-                loadAllDeliveries();
-                const sa = document.getElementById('select-all-checkbox'); if(sa)sa.checked=false;
-                updateSelectionCount();
-            } catch(e) {
-                console.error("Bulk cancel error:",e);
-                alert(`Error during bulk cancel: ${e.message}`);
-            }
+            const ids=getSelectedDeliveryIds(); if(ids.length===0){alert("Select deliveries.");return} if(!confirm(`Cancel ${ids.length} deliveries?`))return; console.log("Cancelling:", ids);
+            try{const r=await fetch('/admin/deliveries/bulk-cancel',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Bulk cancel failed'); alert(`Cancelled ${d.cancelledCount||0}.`); loadAllDeliveries(); const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;updateSelectionCount();}catch(e){console.error("Bulk cancel:",e);alert(`Error: ${e.message}`)}
         }
         async function handleBulkDelete(){
-            const ids = getSelectedDeliveryIds();
-            if (ids.length === 0) { alert("Please select deliveries to delete."); return; }
-            if (!confirm(`DANGER! Are you sure you want to permanently DELETE ${ids.length} selected delivery records?`)) return;
-            console.log("Deleting deliveries:", ids);
-             try {
-                const r = await fetch('/admin/deliveries/bulk-delete',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})});
-                const d = await r.json();
-                if (!r.ok) throw new Error(d.message || 'Bulk delete failed');
-                alert(`Successfully deleted ${d.deletedCount || 0} deliveries.`);
-                loadAllDeliveries();
-                const sa = document.getElementById('select-all-checkbox'); if(sa)sa.checked=false;
-                updateSelectionCount();
-            } catch(e) {
-                console.error("Bulk delete error:",e);
-                alert(`Error during bulk delete: ${e.message}`);
-            }
+            const ids=getSelectedDeliveryIds(); if(ids.length===0){alert("Select deliveries.");return} if(!confirm(`DELETE ${ids.length} records permanently?`))return; console.log("Deleting:", ids);
+             try{const r=await fetch('/admin/deliveries/bulk-delete',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Bulk delete failed'); alert(`Deleted ${d.deletedCount||0}.`); loadAllDeliveries(); const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;updateSelectionCount();}catch(e){console.error("Bulk delete:",e);alert(`Error: ${e.message}`)}
         }
 
-        // --- Security/Initial Load ---
-        // (This is called first by DOMContentLoaded)
+        // --- 1. Security Guard & Initial Load (Main Execution) ---
         document.addEventListener('DOMContentLoaded', () => {
             if (!token || role !== 'admin') {
                 localStorage.clear(); window.location.href = '/login'; return;
