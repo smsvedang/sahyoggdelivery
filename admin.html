@@ -270,7 +270,7 @@
         let allUsersData = []; // Store user data for editing
         let businessSettings = {}; // Holds loaded business settings
 
-        // --- 2. Tab Logic (Must be global for onclick) ---
+        // --- 2. Tab Logic (Must be defined globally for onclick) ---
         function openTab(event, tabName) {
             let i, tabcontent, tablinks;
             tabcontent = document.getElementsByClassName("tab-content");
@@ -281,7 +281,11 @@
             if (currentTab) currentTab.style.display = "block";
             // Check if event exists before accessing currentTarget (for calls from reprint)
             if (event && event.currentTarget) event.currentTarget.className += " active";
+            
             // Refresh data when tabs are opened
+            // These functions must be defined before openTab is called,
+            // or we must ensure they are defined before DOMContentLoaded finishes
+            // (Moving definitions before DOMContentLoaded)
             if (tabName === 'tab-deliveries') loadAllDeliveries();
             if (tabName === 'tab-manage') loadAllUsers();
             if (tabName === 'tab-settings') loadBusinessSettings();
@@ -383,7 +387,6 @@
             } else { console.error("#share-btn missing!"); }
             if (printBtn) {
                  printBtn.onclick = () => {
-                     // Find the delivery data using trackingId from closure
                      const deliveryData = allDeliveriesData.find(d => d.trackingId === trackingId);
                      if (!deliveryData) {
                          console.warn("Using passed data for print.");
@@ -560,16 +563,22 @@
         }
 
         // --- 1. Security Guard & Initial Load (Main Execution) ---
+        // This is the primary execution block that runs when the page loads
         document.addEventListener('DOMContentLoaded', () => {
+            // Check auth
             if (!token || role !== 'admin') {
-                localStorage.clear(); window.location.href = '/login'; return;
+                localStorage.clear();
+                window.location.href = '/login';
+                return; // Stop execution if not admin
             }
+
+            // Populate static elements
             const adminNameEl = document.getElementById('admin-name');
             const copyrightYearEl = document.getElementById('copyright-year');
             if(adminNameEl) adminNameEl.textContent = localStorage.getItem('userName');
             if(copyrightYearEl) copyrightYearEl.textContent = new Date().getFullYear();
 
-            // Setup static listeners
+            // Setup static event listeners
             const refreshBtn = document.getElementById('refresh-deliveries-btn');
             const addUserBtn = document.getElementById('add-user-btn');
             const logoutBtn = document.getElementById('logout-btn');
