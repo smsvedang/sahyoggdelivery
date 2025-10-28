@@ -5,29 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manager Dashboard - Sahyog Medical</title>
     <style>
-        /* Basic Styles (similar to admin) */
-        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
-        h1, h2 { color: #333; }
+        /* General Styles */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        h1, h2, h3 { color: #333; }
         .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #ccc; margin-bottom: 20px;}
         .header button { padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; }
         button { cursor: pointer; border-radius: 5px; padding: 10px 15px; border: none; margin: 2px; }
         button.btn-primary { background-color: #007bff; color: white; }
         button.btn-secondary { background-color: #6c757d; color: white; }
+        button.btn-danger { background-color: #dc3545; color: white; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        input, select { width: calc(100% - 24px); padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; color: #555; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: middle; }
+        th { background-color: #e9ecef; }
+        td select { width: 100%; font-size: 14px; padding: 8px; } /* Dropdown inside table */
+        .footer { text-align: center; margin-top: 30px; color: #888; font-size: 0.9em; }
+
+        /* Tabs */
         .tab-bar { border-bottom: 2px solid #dee2e6; margin-bottom: 20px; }
         .tab-bar button { background: #e9ecef; border: none; padding: 10px 15px; cursor: pointer; font-size: 16px; border-radius: 5px 5px 0 0; margin-bottom: -2px; border: 1px solid #dee2e6; border-bottom: none; }
         .tab-bar button.active { background: #ffffff; border-bottom: 2px solid #ffffff; font-weight: bold; }
         .tab-content { display: none; padding-top: 10px; }
         .tab-content.active { display: block; }
         .card { background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 25px; border: 1px solid #dee2e6; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #e9ecef; }
-        form label { display: block; font-weight: 600; margin-bottom: 5px; color: #555; }
-        form input, form select { width: 95%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
-        .footer { text-align: center; margin-top: 30px; color: #888; font-size: 0.9em; }
-        .message { padding: 10px; margin-top: 10px; border-radius: 5px; }
-        .success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
-        .error { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+
+        /* User Status Indicator */
+        .status-active { color: #198754; font-weight: bold; }
+        .status-inactive { color: #dc3545; font-weight: bold; }
+        
+        /* Message Styles */
+        .message { padding: 10px; margin-top: 10px; border-radius: 5px; display: none; }
+        .message.success { display: block; background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+        .message.error { display: block; background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
     </style>
 </head>
 <body>
@@ -37,13 +48,15 @@
     </div>
 
     <div class="tab-bar">
-        <button class="tab-link active" onclick="openTab(event, 'tab-pickups')">Pending Pickups</button>
+        <button class="tab-link active" onclick="openTab(event, 'tab-pickups')">Assign Pickups</button>
+        <button class="tab-link" onclick="openTab(event, 'tab-all-pending')">All Pending Deliveries</button>
         <button class="tab-link" onclick="openTab(event, 'tab-boys')">Manage Delivery Boys</button>
     </div>
 
     <div id="tab-pickups" class="tab-content active">
         <div class="card" style="min-width: 95%; overflow-x: auto;">
             <h2>Pending Pickups (Ready to Assign)</h2>
+            <p>Yeh woh deliveries hain jo Admin ne aapko assign ki hain, lekin aapne abhi tak kisi delivery boy ko nahi di hain.</p>
             <button id="refresh-pickups-btn" class="btn-secondary">Refresh List</button>
             <table id="pickups-table">
                 <thead>
@@ -56,7 +69,30 @@
                         <th>Assign To</th>
                     </tr>
                 </thead>
-                <tbody id="pickups-body"></tbody>
+                <tbody id="pickups-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-all-pending" class="tab-content">
+        <div class="card" style="min-width: 95%; overflow-x: auto;">
+            <h2>All My Pending Deliveries</h2>
+            <p>Yeh list aapke sabhi active orders dikhati hai (jo abhi tak 'Delivered' ya 'Cancelled' nahi hue hain).</p>
+            <button id="refresh-all-pending-btn" class="btn-secondary">Refresh List</button>
+            <table id="all-pending-table">
+                <thead>
+                    <tr>
+                        <th>Tracking ID</th>
+                        <th>Customer Name</th>
+                        <th>Status</th>
+                        <th>Assigned Boy</th>
+                        <th>Payment</th>
+                        <th>OTP</th>
+                    </tr>
+                </thead>
+                <tbody id="all-pending-body">
+                    </tbody>
             </table>
         </div>
     </div>
@@ -90,7 +126,8 @@
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody id="boys-body"></tbody>
+                <tbody id="boys-body">
+                    </tbody>
             </table>
         </div>
     </div>
@@ -101,79 +138,94 @@
 
 
     <script>
+        // --- 1. Global Variables ---
         const token = localStorage.getItem('authToken');
         const role = localStorage.getItem('userRole');
         const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
         let myDeliveryBoys = []; // Store boys for assignment dropdown
 
-        // --- 1. Security Guard & Initial Load ---
-        document.addEventListener('DOMContentLoaded', () => {
-            if (!token || role !== 'manager') {
-                localStorage.clear();
-                window.location.href = '/login';
-                return;
-            }
-            const managerNameEl = document.getElementById('manager-name');
-            const copyrightYearEl = document.getElementById('copyright-year');
-            if(managerNameEl) managerNameEl.textContent = localStorage.getItem('userName');
-            if(copyrightYearEl) copyrightYearEl.textContent = new Date().getFullYear();
-
-            // Setup static listeners
-            const refreshPickupsBtn = document.getElementById('refresh-pickups-btn');
-            const createBoyForm = document.getElementById('create-boy-form');
-            const refreshBoysBtn = document.getElementById('refresh-boys-btn');
-            const logoutBtn = document.getElementById('logout-btn');
-
-            if(refreshPickupsBtn) refreshPickupsBtn.onclick = loadPendingPickups;
-            if(createBoyForm) createBoyForm.addEventListener('submit', handleCreateBoySubmit);
-             if(refreshBoysBtn) refreshBoysBtn.onclick = loadMyBoys;
-            if(logoutBtn) logoutBtn.onclick = () => { localStorage.clear(); window.location.href = '/login'; };
-
-            // Initial loads - Load boys first, then pickups which uses the boys list
-            loadMyBoys().then(() => {
-                loadPendingPickups(); // Load pickups only after boys are loaded
-            });
-        });
-
-        // --- 2. Tab Logic ---
+        // --- 2. Tab Logic (Global) ---
         function openTab(event, tabName) {
             let i, tabcontent, tablinks;
             tabcontent = document.getElementsByClassName("tab-content");
-            for (i = 0; i < tabcontent.length; i++) {
-                if(tabcontent[i]) tabcontent[i].style.display = "none";
-            }
+            for (i = 0; i < tabcontent.length; i++) { if(tabcontent[i]) tabcontent[i].style.display = "none"; }
             tablinks = document.getElementsByClassName("tab-link");
-            for (i = 0; i < tablinks.length; i++) {
-                 if(tablinks[i]) tablinks[i].className = tablinks[i].className.replace(" active", "");
-            }
+            for (i = 0; i < tablinks.length; i++) { if(tablinks[i]) tablinks[i].className = tablinks[i].className.replace(" active", ""); }
             const currentTab = document.getElementById(tabName);
-            if(currentTab) currentTab.style.display = "block";
-            if(event && event.currentTarget) event.currentTarget.className += " active";
-
+            if (currentTab) currentTab.style.display = "block";
+            if (event && event.currentTarget) event.currentTarget.className += " active";
+            
             // Refresh data when tabs are opened
             if (tabName === 'tab-pickups') loadPendingPickups();
             if (tabName === 'tab-boys') loadMyBoys();
+            if (tabName === 'tab-all-pending') loadAllPendingDeliveries();
         }
 
-        // --- 3. Load Pending Pickups ---
+        // --- 3. Modal/Helper Logic (Global) ---
+        function openModal(modalId) { /* ... (add if modals are needed) ... */ }
+        function closeModal(modalId) { /* ... (add if modals are needed) ... */ }
+
+        // --- 4. Data Loading Functions ---
+
+        // (Loads boys for Tab 3 AND for the dropdowns)
+        async function loadMyBoys() {
+            const tbody = document.getElementById('boys-body');
+            myDeliveryBoys = []; // Reset global list
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5">Loading delivery boys...</td></tr>';
+
+            try {
+                const response = await fetch('/manager/my-boys', { headers });
+                if (response.status === 401) { window.location.href = '/login'; return; }
+                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                const users = await response.json();
+                myDeliveryBoys = users; // Store globally
+
+                if (tbody) { // Update table only if the element exists
+                    tbody.innerHTML = '';
+                    if(users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No delivery boys found. Add one below.</td></tr>';
+                    } else {
+                        users.forEach(user => {
+                            const row = document.createElement('tr');
+                            const statusClass = user.isActive ? 'status-active' : 'status-inactive';
+                            row.innerHTML = `
+                                <td>${user.name || 'N/A'}</td>
+                                <td>${user.email || 'N/A'}</td>
+                                <td>${user.phone || 'N/A'}</td>
+                                <td><span class="${statusClass}">${user.isActive ? 'Active' : 'Inactive'}</span></td>
+                                <td>{/* Admin manages user status */}</td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+                }
+                return true; // Indicate success for .then()
+
+            } catch (err) {
+                 console.error("Error loading my boys:", err);
+                 if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="color: red; text-align: center;">Error loading boys: ${err.message}</td></tr>`;
+                 return false; // Indicate failure
+            }
+        }
+
+        // (Loads unassigned pickups for Tab 1)
         async function loadPendingPickups() {
             const tbody = document.getElementById('pickups-body');
             if (!tbody) return;
             tbody.innerHTML = '<tr><td colspan="6">Loading pickups assigned to you...</td></tr>';
             try {
-                // Fetch deliveries assigned to THIS manager
-                const response = await fetch('/manager/assigned-pickups', { headers }); // Changed API endpoint
+                const response = await fetch('/manager/assigned-pickups', { headers });
                 if (response.status === 401) { window.location.href = '/login'; return; }
                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                 const deliveries = await response.json();
                 tbody.innerHTML = '';
                 if(deliveries.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No pending pickups assigned to you.</td></tr>'; return;
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No pending pickups to assign.</td></tr>'; return;
                 }
                 deliveries.forEach(d => {
                     const row = document.createElement('tr');
                     const date = new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-
+                    
                     // Build dropdown using the globally stored myDeliveryBoys list
                     let assignDropdownHTML = `<select id="assign-${d._id}" onchange="assignDelivery('${d._id}', this.value)">`;
                     assignDropdownHTML += `<option value="">Assign to...</option>`;
@@ -204,50 +256,43 @@
             }
         }
 
-         // --- 4. Load My Delivery Boys ---
-        async function loadMyBoys() {
-            const tbody = document.getElementById('boys-body');
-            myDeliveryBoys = []; // Reset global list
-            if (tbody) tbody.innerHTML = '<tr><td colspan="5">Loading delivery boys...</td></tr>';
-
+        // (Loads ALL active deliveries for Tab 2)
+        async function loadAllPendingDeliveries() {
+            const tbody = document.getElementById('all-pending-body');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="6">Loading all pending deliveries...</td></tr>';
             try {
-                const response = await fetch('/manager/my-boys', { headers });
+                const response = await fetch('/manager/all-pending-deliveries', { headers });
                 if (response.status === 401) { window.location.href = '/login'; return; }
-                 if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-                const users = await response.json();
-                myDeliveryBoys = users; // Store globally
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                
+                const deliveries = await response.json();
+                tbody.innerHTML = ''; // Clear loading
 
-                if (tbody) {
-                    tbody.innerHTML = '';
-                    if(users.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No delivery boys found. Add one below.</td></tr>';
-                    } else {
-                        users.forEach(user => {
-                            const row = document.createElement('tr');
-                            const statusClass = user.isActive ? 'status-active' : 'status-inactive';
-                            row.innerHTML = `
-                                <td>${user.name || 'N/A'}</td>
-                                <td>${user.email || 'N/A'}</td>
-                                <td>${user.phone || 'N/A'}</td>
-                                <td><span class="${statusClass}">${user.isActive ? 'Active' : 'Inactive'}</span></td>
-                                <td></td>
-                            `;
-                            tbody.appendChild(row);
-                        });
-                    }
+                if (deliveries.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No pending deliveries found.</td></tr>';
+                    return;
                 }
-                // Important: Return something to indicate success for the .then() in initial load
-                return true;
 
+                deliveries.forEach(d => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${d.trackingId}</td>
+                        <td>${d.customerName || 'N/A'}</td>
+                        <td><strong>${d.currentStatus}</strong></td>
+                        <td>${d.assignedTo ? d.assignedTo.name : (d.assignedBoyDetails ? d.assignedBoyDetails.name : 'N/A')}</td>
+                        <td>${d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid'}</td>
+                        <td>${d.otp}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
             } catch (err) {
-                 console.error("Error loading my boys:", err);
-                 if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="color: red; text-align: center;">Error loading boys: ${err.message}</td></tr>`;
-                 // Return false or throw error to indicate failure
-                 return false;
+                 console.error("Error loading all pending deliveries:", err);
+                 tbody.innerHTML = `<tr><td colspan="6" style="color: red; text-align: center;">Error: ${err.message}</td></tr>`;
             }
         }
 
-        // --- 5. Handle Create Delivery Boy ---
+        // --- 5. Action Handlers ---
         async function handleCreateBoySubmit(e) {
              e.preventDefault();
              const resultDiv = document.getElementById('create-boy-result');
@@ -279,14 +324,13 @@
             }
         }
 
-        // --- 6. Handle Assign Delivery ---
         async function assignDelivery(deliveryId, assignedBoyId) {
-             if (!assignedBoyId) return;
-             if (!confirm(`Assign delivery ${deliveryId} to the selected boy?`)) {
-                 const selectEl = document.getElementById(`assign-${deliveryId}`);
-                 if(selectEl) selectEl.value = "";
-                 return;
-             }
+             if (!assignedBoyId) return; // Ignore if "Assign to..." is selected
+             
+             // Find the select element to disable it
+             const selectEl = document.getElementById(`assign-${deliveryId}`);
+             if (selectEl) selectEl.disabled = true;
+
              try {
                 const response = await fetch(`/manager/assign-delivery/${deliveryId}`, {
                     method: 'PATCH',
@@ -299,17 +343,46 @@
                     loadPendingPickups(); // Refresh the list
                 } else {
                      alert(`Error assigning: ${data.message}`);
-                     const selectEl = document.getElementById(`assign-${deliveryId}`);
-                     if(selectEl) selectEl.value = "";
+                     if (selectEl) selectEl.disabled = false; // Re-enable on failure
                 }
              } catch (err) {
                   console.error("Assign delivery error:", err);
                   alert('Server error during assignment.');
-                  const selectEl = document.getElementById(`assign-${deliveryId}`);
-                  if(selectEl) selectEl.value = "";
+                  if (selectEl) selectEl.disabled = false; // Re-enable on failure
              }
         }
-    </script>
 
+        // --- 6. Security Guard & Initial Load (Main Execution) ---
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!token || role !== 'manager') {
+                localStorage.clear();
+                window.location.href = '/login';
+                return;
+            }
+            const managerNameEl = document.getElementById('manager-name');
+            const copyrightYearEl = document.getElementById('copyright-year');
+            if(managerNameEl) managerNameEl.textContent = localStorage.getItem('userName');
+            if(copyrightYearEl) copyrightYearEl.textContent = new Date().getFullYear();
+
+            // Setup static listeners
+            const refreshPickupsBtn = document.getElementById('refresh-pickups-btn');
+            const createBoyForm = document.getElementById('create-boy-form');
+            const refreshBoysBtn = document.getElementById('refresh-boys-btn');
+            const logoutBtn = document.getElementById('logout-btn');
+            const refreshAllPendingBtn = document.getElementById('refresh-all-pending-btn');
+
+            if(refreshPickupsBtn) refreshPickupsBtn.onclick = loadPendingPickups;
+            if(createBoyForm) createBoyForm.addEventListener('submit', handleCreateBoySubmit);
+            if(refreshBoysBtn) refreshBoysBtn.onclick = loadMyBoys;
+            if(logoutBtn) logoutBtn.onclick = () => { localStorage.clear(); window.location.href = '/login'; };
+            if(refreshAllPendingBtn) refreshAllPendingBtn.onclick = loadAllPendingDeliveries;
+
+            // Initial loads
+            loadMyBoys().then(() => {
+                // Only load pickups *after* boys list is fetched
+                loadPendingPickups();
+            });
+        });
+    </script>
 </body>
 </html>

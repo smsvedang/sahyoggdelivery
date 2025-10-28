@@ -498,7 +498,25 @@ app.patch('/manager/assign-delivery/:deliveryId', auth(['manager']), async (req,
          console.error("Assign Delivery Error:", error);
          res.status(500).json({ message: 'Server error during assignment', error: error.message });
     }
+    });
+
+// --- (NEW) 8.5. Manager: Get ALL their pending deliveries (Assigned or Unassigned) ---
+app.get('/manager/all-pending-deliveries', auth(['manager']), async (req, res) => {
+    try {
+        const deliveries = await Delivery.find({
+            assignedByManager: req.user.userId, // Assigned by this manager
+            'statusUpdates.status': { $nin: ['Delivered', 'Cancelled'] } // Not yet completed
+        })
+        .populate('assignedTo', 'name') // Populate the delivery boy's name
+        .sort({ createdAt: -1 }); // Show newest first
+
+        res.json(deliveries);
+    } catch (error) {
+        console.error("Fetch All Pending Deliveries Error:", error);
+        res.status(500).json({ message: 'Error fetching all pending deliveries' });
+    }
 });
+
 
 // --- 9. Delivery Boy API Routes ---
 
