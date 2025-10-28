@@ -533,6 +533,7 @@
         // --- 7. Delivery Actions ---
         function reprintLabel(deliveryId) {
             const delivery = allDeliveriesData.find(d => d._id === deliveryId); if (!delivery) { alert('Delivery data not found.'); return; }
+            // Pass phone number to label generator
             const generated = generateLabel(delivery.customerName, delivery.customerAddress, delivery.trackingId, delivery.paymentMethod, delivery.customerPhone);
             if (generated) { const resultArea = document.getElementById('result-area'); if(resultArea) { openTab(null, 'tab-book'); setTimeout(() => resultArea.scrollIntoView({ behavior: 'smooth' }), 100); } setTimeout(printLabelInternal, 500); }
             else { alert("Label/QR failed."); }
@@ -545,7 +546,6 @@
         }
 
         // --- 8. Label Generation & Print ---
-       // --- 8. Label Generation & Print ---
         // Generates the HTML string for ONE label (Portrait Optimized)
         function generateSingleLabelHtml(name, address, trackingId, paymentMethod, phone, qrPlaceholderId) {
             const logoHtml = businessSettings.logoUrl
@@ -599,6 +599,28 @@
                 </div>
             `;
         }
+        // Generates label preview in the #label div
+        function generateLabelPreview(name, address, trackingId, paymentMethod, phone) { // Renamed from generateLabel
+            const labelDiv = document.getElementById('label');
+            if (!labelDiv) { console.error("#label preview div not found!"); return false; }
+
+            const qrPlaceholderId = 'qrcode-tracking-preview'; // Unique ID for preview
+            // Use the helper to generate the HTML
+            labelDiv.innerHTML = generateSingleLabelHtml(name, address, trackingId, paymentMethod, phone, qrPlaceholderId);
+            labelDiv.style.display = 'block';
+
+            // Generate QR Code specifically for the preview
+            const qrElement = labelDiv.querySelector(`#${qrPlaceholderId}`);
+            if (qrElement && trackingId) {
+                qrElement.innerHTML = ''; // Clear previous
+                try {
+                    new QRCode(qrElement, { text: trackingId, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H });
+                    return true; // Success
+                } catch (qrError) { console.error("QR Error:", qrError); qrElement.innerHTML = '<p style="color:red; font-size: small;">QR Error</p>'; }
+            } else { console.error("QR Placeholder/TrackingID missing for preview."); }
+            return false; // Failure
+        }
+        // Sets up Print and Share button actions after successful booking
         function setupActionButtons(trackingId, otp, phone) {
             console.log("Setting up action buttons for:", trackingId);
             const shareBtn = document.getElementById('share-btn');
@@ -629,19 +651,97 @@
             } else { console.error("#share-btn missing!"); }
 
             if (printBtn) {
-                printBtn.onclick = printLabelInternal; // Assign print function
+                 // When print button clicked, generate the single label HTML again for printing
+                 printBtn.onclick = () => {
+                     // Find the delivery data using trackingId from closure
+                     const deliveryData = allDeliveriesData.find(d => d.trackingId === trackingId);
+                     if (!deliveryData) {
+                         // Fallback using data passed to setupActionButtons if not found in global list
+                         console.warn("Could not find delivery in global data, using passed data for print.");
+                          // It's better to pass all required data explicitly if possible
+                          // Re-read from form as last resort (might be cleared)
+                         const name = document.getElementById('name').value;
+                         const address = document.getElementById('address').value;
+                         const paymentMethod = document.getElementById('paymentMethod').value;
+                         // Phone was passed directly, use it
+                         printSingleLabel(name, address, trackingId, paymentMethod, phone);
+                         return;
+                     }
+                     printSingleLabel(deliveryData.customerName, deliveryData.customerAddress, deliveryData.trackingId, deliveryData.paymentMethod, deliveryData.customerPhone);
+                 };
             } else { console.error("#print-btn missing!"); }
         }
+        // Function specifically for printing a single label in a new window
+        function printSingleLabel(name, address, trackingId, paymentMethod, phone) {
+            const qrPlaceholderId = `print-qr-${trackingId}-${Date.now()}`; // More unique ID
+            const labelHtml = generateSingleLabelHtml(name, address, trackingId, paymentMethod, phone, qrPlaceholderId);
+
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            if (!printWindow) { alert("Please allow popups to print."); return; }
+
+            printWindow.document.write(`
+                <html><head><title>Print Label - ${trackingId}</title>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+                <style>
+                    /* Basic reset for print */
+                    body { margin: 0; padding: 0; }
+                    /* Try to force portrait and size using @page */
+                    @page {
+                        size: A4 portrait; /* Specify size and orientation */
+                        margin: 5mm; /* Minimal margin */
+                    }
+                    /* Ensure the grid container itself respects print */
+                    .label-grid-container {
+                         border: 1.5px solid black !important;
+                         margin: 0 !important;
+                         width: 190mm !important; /* Explicit width close to A4 width minus margins */
+                         height: 270mm !important; /* Explicit height close to A4 height minus margins */
+                         box-sizing: border-box; /* Include border in size */
+                         page-break-inside: avoid; /* Prevent breaking inside */
+                    }
+                    /* Force color printing */
+                     -webkit-print-color-adjust: exact;
+                     print-color-adjust: exact;
+                </style>
+                </head><body>
+                    ${labelHtml} {/* This already includes the label styles */}
+                    <script>
+                        // Use try-catch for safety
+                        try {
+                             const el = document.getElementById('${qrPlaceholderId}');
+                             if (el && '${trackingId}') {
+                                new QRCode(el, { text: '${trackingId}', width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H });
+                             } else {
+                                console.error("Element or trackingId missing in print window for QR");
+                             }
+                         } catch (e) {
+                             console.error("QR Error in print window:", e);
+                             const el = document.getElementById('${qrPlaceholderId}');
+                             if(el) el.innerHTML = 'QR Error';
+                         }
+                        // Print after QR generation attempt
+                        setTimeout(() => {
+                            window.print();
+                            // Optional: Close after delay - might be blocked by browser
+                            // setTimeout(() => window.close(), 1000);
+                        }, 500); // Delay for QR render
+                    <\/script>
+                </body></html>
+            `);
+            printWindow.document.close();
+        }
+        // This function is kept for the reprintLabel button's onclick attribute
         function printLabelInternal() {
-            console.log("Print label button clicked");
+            console.log("Print label button clicked (Internal handler)");
             const label = document.getElementById('label');
             if (!label || label.style.display === 'none') {
-                 alert("Generate label first.");
+                 alert("Generate or select a label first.");
                  console.log("Print aborted: Label not visible or not found");
                  return;
             }
-            window.print();
+            window.print(); // Uses @media print CSS
         }
+
 
         // --- 9. Modal Helpers ---
         function openModal(modalId) { const modal = document.getElementById(modalId); if(modal) modal.style.display = 'flex'; }
@@ -654,128 +754,63 @@
 
         // --- 11. Business Settings Logic ---
         async function loadBusinessSettings() { // Loads when tab is opened
-            const resultDiv=document.getElementById('settings-result');
-            const logoPreview=document.getElementById('logo-preview');
-            if(!resultDiv || !logoPreview) { console.error("Settings elements missing!"); return; } // Added check
-            resultDiv.textContent='Loading settings...'; resultDiv.className='message';
-            try {
-                const r = await fetch('/admin/settings',{headers});
-                if (r.status===401) { window.location.href='/login'; return; }
-                if (!r.ok) throw new Error(`HTTP error ${r.status}`);
-                const s = await r.json();
-                businessSettings = s; // Update global settings variable
-                console.log("Loaded Settings:", s); // Log loaded settings
-
-                // Populate form fields, check if elements exist
-                const nameEl=document.getElementById('business-name');
-                const addrEl=document.getElementById('business-address');
-                const phoneEl=document.getElementById('business-phone');
-                const logoUrlEl=document.getElementById('business-logo-url');
-                const upiIdEl=document.getElementById('upi-id');
-                const upiNameEl=document.getElementById('upi-name');
-
-                if(nameEl) nameEl.value=s.businessName || '';
-                if(addrEl) addrEl.value=s.businessAddress || '';
-                if(phoneEl) phoneEl.value=s.businessPhone || '';
-                if(logoUrlEl) logoUrlEl.value=s.logoUrl || '';
-                if(upiIdEl) upiIdEl.value=s.upiId || '';
-                if(upiNameEl) upiNameEl.value=s.upiName || '';
-
-                if(s.logoUrl) { logoPreview.src=s.logoUrl; logoPreview.style.display='block'; }
-                else { logoPreview.style.display='none'; }
-                resultDiv.textContent=''; // Clear loading message
-            } catch(e) {
-                console.error("Load settings error:",e);
-                resultDiv.textContent=`Error loading settings: ${e.message}`; resultDiv.className='message error';
-            }
+            const resDiv=document.getElementById('settings-result'),logoPre=document.getElementById('logo-preview'); if(!resDiv||!logoPre)return;
+            resDiv.textContent='Loading...';resDiv.className='message';
+            try{const r=await fetch('/admin/settings',{headers});if(r.status===401){window.location.href='/login';return}if(!r.ok)throw new Error(`HTTP ${r.status}`); const s=await r.json(); businessSettings=s;
+            const nameEl=document.getElementById('business-name'),addrEl=document.getElementById('business-address'),phoneEl=document.getElementById('business-phone'),logoUrlEl=document.getElementById('business-logo-url'),upiIdEl=document.getElementById('upi-id'),upiNameEl=document.getElementById('upi-name');
+            if(nameEl)nameEl.value=s.businessName||''; if(addrEl)addrEl.value=s.businessAddress||''; if(phoneEl)phoneEl.value=s.businessPhone||''; if(logoUrlEl)logoUrlEl.value=s.logoUrl||''; if(upiIdEl)upiIdEl.value=s.upiId||''; if(upiNameEl)upiNameEl.value=s.upiName||'';
+            if(s.logoUrl){logoPre.src=s.logoUrl;logoPre.style.display='block'}else{logoPre.style.display='none'} resDiv.textContent='';
+            }catch(e){console.error("Load settings error:",e);resDiv.textContent=`Error: ${e.message}`;resDiv.className='message error'}
         }
         async function loadBusinessSettingsOnLoad() { // Loads once on page load
              try {
                 const response = await fetch('/admin/settings', { headers });
-                if (response.ok) {
-                    businessSettings = await response.json();
-                    console.log("Initial settings loaded:", businessSettings);
-                } else {
-                     console.error("Failed to load initial business settings. Status:", response.status);
-                }
-            } catch (err) {
-                console.error("Network error loading initial business settings:", err);
-            }
+                if (response.ok) { businessSettings = await response.json(); console.log("Settings loaded:", businessSettings); }
+                else { console.error("Failed initial settings load"); }
+            } catch (err) { console.error("Initial settings load error:", err); }
         }
         async function handleBusinessSettingsSubmit(e) {
-            e.preventDefault();
-            const form = e.target;
-            const btn = form.querySelector('button[type="submit"]');
-            const resDiv = document.getElementById('settings-result');
-            const logoPre = document.getElementById('logo-preview');
-            if(!btn || !resDiv || !logoPre) return;
-
-            btn.disabled=true; btn.textContent='Saving...';
-            resDiv.textContent=''; resDiv.className='message';
-            const data = {
-                businessName: form.elements['business-name'].value,
-                businessAddress: form.elements['business-address'].value,
-                businessPhone: form.elements['business-phone'].value,
-                logoUrl: form.elements['business-logo-url'].value,
-                upiId: form.elements['upi-id'].value,
-                upiName: form.elements['upi-name'].value
-            };
-            console.log("Saving settings:", data); // Log data being saved
-            try {
-                const r = await fetch('/admin/settings',{method:'PUT',headers,body:JSON.stringify(data)});
-                const d = await r.json();
-                if (r.ok) {
-                    resDiv.textContent = d.message || 'Settings saved successfully!';
-                    resDiv.className = 'message success';
-                    businessSettings = d.settings || data; // Update global settings
-                    console.log("Updated settings:", businessSettings);
-                    if (businessSettings.logoUrl) { logoPre.src=businessSettings.logoUrl; logoPre.style.display='block'; }
-                    else { logoPre.style.display='none'; }
-                } else {
-                    resDiv.textContent=`Error: ${d.message || 'Failed to save settings.'}`;
-                    resDiv.className='message error';
-                }
-            } catch(e) {
-                console.error("Save settings error:", e);
-                resDiv.textContent=`Server error: ${e.message}`; resDiv.className='message error';
-            } finally {
-                btn.disabled = false; btn.textContent = 'Save Settings';
-                setTimeout(() => { if(resDiv) resDiv.textContent = ''; }, 3000); // Clear message after 3s
-            }
+            e.preventDefault(); const btn=e.target.querySelector('button[type="submit"]'),resDiv=document.getElementById('settings-result'),logoPre=document.getElementById('logo-preview'); if(!btn||!resDiv||!logoPre)return;
+            btn.disabled=true;btn.textContent='Saving...';resDiv.textContent='';resDiv.className='message';
+            const data={businessName:e.target.elements['business-name'].value,businessAddress:e.target.elements['business-address'].value,businessPhone:e.target.elements['business-phone'].value,logoUrl:e.target.elements['business-logo-url'].value,upiId:e.target.elements['upi-id'].value,upiName:e.target.elements['upi-name'].value};
+            try{const r=await fetch('/admin/settings',{method:'PUT',headers,body:JSON.stringify(data)}); const d=await r.json();
+            if(r.ok){resDiv.textContent=d.message||'Saved!';resDiv.className='message success';businessSettings=d.settings||data; if(businessSettings.logoUrl){logoPre.src=businessSettings.logoUrl;logoPre.style.display='block'}else{logoPre.style.display='none'}}
+            else{resDiv.textContent=`Error: ${d.message||'Save failed.'}`;resDiv.className='message error'}
+            }catch(e){console.error("Save settings error:",e);resDiv.textContent=`Server error: ${e.message}`;resDiv.className='message error'}
+            finally{btn.disabled=false;btn.textContent='Save Settings';setTimeout(()=>{if(resDiv)resDiv.textContent=''},3000)}
         }
 
         // --- 12. Bulk Action Helper Functions ---
-        function getSelectedDeliveryIds() {
+        function getSelectedDeliveryIds(){
             const ids=[];
-            document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').forEach(cb => ids.push(cb.value));
+            document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').forEach(cb=>ids.push(cb.value));
             return ids;
         }
-        function updateSelectionCount() {
-            const count = document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').length;
-            const countSpan = document.getElementById('selection-count');
-            const selAll = document.getElementById('select-all-checkbox');
-            const allCb = document.querySelectorAll('#all-deliveries-body .delivery-checkbox');
-            // Ensure elements exist
-            if (countSpan) countSpan.textContent = `(${count} selected)`;
-            if (selAll && allCb.length > 0) {
-                selAll.checked = (count === allCb.length);
-                selAll.indeterminate = (count > 0 && count < allCb.length);
-            } else if (selAll) {
+        function updateSelectionCount(){
+            const count=document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').length;
+            const countSpan=document.getElementById('selection-count');
+            const selAll=document.getElementById('select-all-checkbox');
+            const allCb=document.querySelectorAll('#all-deliveries-body .delivery-checkbox');
+            if(countSpan) countSpan.textContent=`(${count} selected)`;
+            if(selAll && allCb.length > 0){
+                selAll.checked=(count === allCb.length);
+                selAll.indeterminate=(count > 0 && count < allCb.length);
+            } else if(selAll){
                 selAll.checked = false;
                 selAll.indeterminate = false;
             }
         }
-        function handleSelectAll(e) {
+        function handleSelectAll(e){
             // Ensure event and target exist
             if (!e || !e.target) return;
             document.querySelectorAll('#all-deliveries-body .delivery-checkbox').forEach(cb => {
-                cb.checked = e.target.checked;
+                cb.checked=e.target.checked;
             });
             updateSelectionCount();
         }
 
         // --- 13. Bulk Action Handlers ---
-        function handleBulkReprint() {
+        function handleBulkReprint(){
             const ids = getSelectedDeliveryIds();
             if (ids.length === 0) { alert("Please select deliveries to reprint."); return; }
             console.log("Generating bulk print for IDs:", ids);
@@ -806,25 +841,14 @@
                 <html><head><title>Print Labels</title>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
                 <style>
-                    /* Basic reset for print */
-                    body { margin: 0; padding: 0; }
-                    /* Try to force portrait and size using @page */
-                    @page {
-                        size: A4 portrait; /* Specify size and orientation */
-                        margin: 5mm; /* Minimal margin */
+                    body { margin: 5mm; }
+                    @media print {
+                        body { margin: 0; }
+                        .label-print-instance { page-break-before: always; margin: 5mm !important; }
+                        .label-print-instance:first-child { page-break-before: avoid; margin-top: 5mm !important; }
+                        .label-grid-container { border: 1.5px solid black !important; }
+                         -webkit-print-color-adjust: exact; print-color-adjust: exact;
                     }
-                    /* Ensure the grid container itself respects print */
-                    .label-grid-container {
-                         border: 1.5px solid black !important;
-                         margin: 0 !important;
-                         width: 190mm !important; /* Explicit width close to A4 width minus margins */
-                         height: 270mm !important; /* Explicit height close to A4 height minus margins */
-                         box-sizing: border-box; /* Include border in size */
-                         page-break-inside: avoid; /* Prevent breaking inside */
-                    }
-                    /* Force color printing */
-                     -webkit-print-color-adjust: exact;
-                     print-color-adjust: exact;
                 </style>
                 </head><body>
                     ${combinedLabelsHtml}
@@ -843,13 +867,12 @@
             `);
             printWindow.document.close();
 
-            // Deselect checkboxes after initiating print
             const selectAll = document.getElementById('select-all-checkbox');
             if(selectAll) selectAll.checked = false;
             document.querySelectorAll('.delivery-checkbox:checked').forEach(cb => cb.checked = false);
             updateSelectionCount();
         }
-        async function handleBulkCancel() {
+        async function handleBulkCancel(){
             const ids = getSelectedDeliveryIds();
             if (ids.length === 0) { alert("Please select deliveries to cancel."); return; }
             if (!confirm(`Are you sure you want to cancel ${ids.length} selected deliveries?`)) return;
@@ -867,7 +890,7 @@
                 alert(`Error during bulk cancel: ${e.message}`);
             }
         }
-        async function handleBulkDelete() {
+        async function handleBulkDelete(){
             const ids = getSelectedDeliveryIds();
             if (ids.length === 0) { alert("Please select deliveries to delete."); return; }
             if (!confirm(`DANGER! Are you sure you want to permanently DELETE ${ids.length} selected delivery records?`)) return;
