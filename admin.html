@@ -466,7 +466,13 @@
                 if(deliveries.length === 0) { tbody.innerHTML = '<tr><td colspan="11" style="text-align: center;">No deliveries found.</td></tr>'; return; }
                 deliveries.forEach(d => {
                     const row = tbody.insertRow(); row.style.verticalAlign = 'middle';
-                    const cellCheckbox = row.insertCell(0); const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.className = 'delivery-checkbox'; checkbox.value = d._id; cellCheckbox.appendChild(checkbox); cellCheckbox.style.width = '30px';
+                    const cellCheckbox = row.insertCell(0);
+                    const checkbox = document.createElement('input'); 
+                    checkbox.type = 'checkbox'; 
+                    checkbox.className = 'delivery-checkbox'; 
+                    checkbox.value = d._id; 
+                    cellCheckbox.appendChild(checkbox); 
+                    cellCheckbox.style.width = '30px';
                     row.insertCell(1).textContent = d.trackingId || 'N/A';
                     row.insertCell(2).textContent = d.customerName || 'N/A';
                     const cellStatus = row.insertCell(3); cellStatus.innerHTML = `<strong>${d.currentStatus || 'N/A'}</strong>`;
