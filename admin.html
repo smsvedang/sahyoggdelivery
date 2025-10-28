@@ -526,6 +526,56 @@
              catch(e){console.error("Toggle active error:",e);alert(`Error: ${e.message}`)}
         }
 
+        async function loadManagersForDropdown() {
+            const dropdown = document.getElementById('assignedTo');
+            if (!dropdown) {
+                console.warn("Manager dropdown (#assignedTo) not found.");
+                return;
+            }
+
+            try {
+                // We assume you have an endpoint that returns *active* managers.
+                // If not, you might need to fetch '/admin/users' and filter manually.
+                const response = await fetch('/admin/managers', { headers });
+
+                if (response.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP error ${response.status}`);
+                }
+                
+                const managers = await response.json();
+                
+                // Store the current value to re-select it
+                const currentValue = dropdown.value;
+                
+                // Clear existing options
+                dropdown.innerHTML = '';
+
+                // Add the default "None" option
+                const defaultOption = document.createElement('option');
+                defaultOption.value = ""; // Use an empty string for "no manager"
+                defaultOption.textContent = "-- Assign Later (None) --";
+                dropdown.appendChild(defaultOption);
+
+                // Add fetched managers
+                managers.forEach(manager => {
+                    const option = document.createElement('option');
+                    option.value = manager._id;
+                    option.textContent = manager.name;
+                    dropdown.appendChild(option);
+                });
+
+                // Re-select the previous value if it's still valid
+                dropdown.value = currentValue || "";
+
+            } catch (err) {
+                console.error("Failed to load managers for dropdown:", err);
+                dropdown.innerHTML = '<option value="">Error loading managers</option>';
+            }
+        }
         // --- 7. Delivery Actions (Definitions) ---
         function reprintLabel(deliveryId) {
             const delivery = allDeliveriesData.find(d => d._id === deliveryId); if (!delivery) { alert('Delivery data not found.'); return; }
