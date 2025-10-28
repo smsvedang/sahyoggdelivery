@@ -314,78 +314,87 @@
         }
 
         // --- 5. Label Generation & Print ---
-        // Generates the HTML string for ONE label (Portrait Optimized)
-        function generateSingleLabelHtml(name, address, trackingId, paymentMethod, phone, qrPlaceholderId) {
-            const logoHtml = businessSettings.logoUrl
-                ? `<img src="${businessSettings.logoUrl}" alt="${businessSettings.businessName || 'Logo'}" style="max-height: 40px; max-width: 120px; margin-bottom: 5px;">`
-                : `<strong>${businessSettings.businessName || 'Sahyog Medical'}</strong>`;
+        // Generates the HTML string for ONE label (Amazon-style)
+        function generateSingleLabelHtml(name, address, trackingId, paymentMethod, phone, qrPlaceholderId) {
+            // Business settings se data ya default fallback
+            const fromName = businessSettings.businessName || 'Sahyog Medical Store';
+            const fromAddress = businessSettings.businessAddress || 'Near Majeji Nursing Home, 458110, Dist-Neemuch, Madhya Pradesh';
+            const fromPhone = businessSettings.businessPhone || '+91 7415543744';
+            const logoHtml = businessSettings.logoUrl
+                ? `<img src="${businessSettings.logoUrl}" alt="Logo" style="max-height: 40px; max-width: 120px; margin-bottom: 5px;">`
+                : `<strong style="font-size: 14pt;">${fromName}</strong>`;
 
-            return `
-                <div class="label-grid-container" style="border: 1.5px solid black; display: grid; grid-template-columns: 60% 40%; grid-template-rows: auto auto auto 1fr; width: 100mm; /* Fixed width for portrait */ min-height: 140mm; /* Minimum height */ height: auto; font-family: Arial, sans-serif; font-size: 10pt; background: white; margin-bottom: 5mm; page-break-inside: avoid;">
-                    <style scoped>
-                        *, *::before, *::after { box-sizing: border-box; }
-                        .label-grid-container { border: 1.5px solid black !important; display: grid !important; grid-template-columns: 60% 40% !important; grid-template-rows: auto auto auto 1fr !important; width: 100mm !important; min-height: 140mm !important; height: auto !important; font-family: Arial, sans-serif !important; font-size: 10pt !important; background: white !important; margin: 0 !important; padding: 0 !important; page-break-inside: avoid !important; }
-                        
-                        /* --- YEH RULE DEKHO --- */
-                        /* Sabhi div me default style */
-                        .label-grid-container div { 
-                            padding: 4px 6px !important; 
-                            border-right: 1px solid black; /* <<< YEH RAHI AAPKI VERTICAL LINE */
-                            box-sizing: border-box; 
-                            word-wrap: break-word; 
-                            overflow: hidden; 
-                        }
-                        
-                        /* Aakhri column (FROM:) se vertical line hatata hai */
-                        .label-grid-container div:nth-child(2n) { 
-                            border-right: none; 
-                        }
+            // Payment method ko saaf karna
+            const paymentText = (paymentMethod === 'COD') ? `COD: ₹${document.getElementById('billAmount')?.value || 'N/A'}` : 'Prepaid';
 
-                        /* --- HORIZONTAL LINES KE LIYE --- */
-                        .grid-header { 
-                            font-weight: bold; 
-                            background-color: #f0f0f0 !important; 
-                            -webkit-print-color-adjust: exact; 
-                            print-color-adjust: exact; 
-                            border-bottom: 1px solid black; /* SHIP TO / FROM ke niche line */
-                        }
-                        
-                        .grid-order-id,
-                        .grid-remarks {
-                            border-bottom: 1px solid black; /* TRACKING ID / ORDER TYPE ke niche line */
-                        }
+            return `
+<div class="label-container" style="width: 100mm; min-height: 140mm; height: auto; border: 2.5px solid black; background: white; display: flex; flex-direction: column; font-family: Arial, sans-serif; box-sizing: border-box; page-break-inside: avoid; margin-bottom: 5mm;">
+    
+    <style scoped>
+        .label-container *, .label-container *::before, .label-container *::after { box-sizing: border-box; }
+        .label-section { display: flex; border-bottom: 2.5px solid black; }
+        .label-section:last-child { border-bottom: none; flex-grow: 1; }
+        .label-box { padding: 10px; word-wrap: break-word; }
+        .label-box p { margin: 0 0 5px 0; padding: 0; font-size: 10pt; line-height: 1.4; }
+        .label-box strong { font-size: 11pt; }
+        .label-box .header { font-size: 10pt; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        
+        .label-from { flex-basis: 50%; border-right: 2.5px solid black; }
+        .label-ship-to { flex-basis: 50%; }
+        .label-ship-to p.cust-name { font-size: 14pt; font-weight: bold; margin-bottom: 5px; }
+        .label-ship-to p.cust-phone { font-size: 12pt; font-weight: bold; margin-top: 5px; }
 
-                        /* --- GRID LAYOUT --- */
-                        .grid-ship-to { grid-column: 1 / 2; grid-row: 2 / 3; }
-                        .grid-from { grid-column: 2 / 3; grid-row: 2 / 3; }
-                        .grid-order-id { grid-column: 1 / 2; grid-row: 3 / 4; }
-                        .grid-remarks { grid-column: 2 / 3; grid-row: 3 / 4; }
+        .label-qr-code { flex-basis: 45%; border-right: 2.5px solid black; display: flex; align-items: center; justify-content: center; padding: 10px; }
+        .label-qr-code .qr-code-img { margin: 0 auto; }
+        .label-qr-code .qr-code-img img { width: 90px !important; height: 90px !important; }
 
-                        /* --- QR CODE AREA --- */
-                        .grid-qr-code { 
-                            grid-column: 1 / 3; 
-                            grid-row: 4 / 5; 
-                            text-align: center; 
-                            padding-top: 10px !important; 
-                            padding-bottom: 5px !important; 
-                            border-top: 1.5px solid black; 
-                            border-bottom: none !important; 
-                            border-right: none !important; 
-                        }
-                        
-                        .grid-qr-code .qr-code-img img { display: block; margin: 0 auto 5px auto; width: 90px !important; height: 90px !important; }
-                        .grid-qr-code small { font-size: 8pt; font-weight: bold; letter-spacing: 1px; display: block; }
-                        .label-grid-container p { margin: 1px 0; padding: 0; font-size: 9pt; }
-                    </style>
-                    <div class="grid-header">SHIP TO:</div> <div class="grid-header">FROM:</div>
-                    <div class="grid-ship-to"><p><strong>${name||'N/A'}</strong></p><p>${address||'N/A'}</p><p>Ph: ${phone||'N/A'}</p></div>
-                    <div class="grid-from">${logoHtml}<p>${businessSettings.businessAddress||'N/A'}</p><p>Ph: ${businessSettings.businessPhone||'N/A'}</p></div>
-                    <div class="grid-order-id">TRACKING ID: <strong>${trackingId||'N/A'}</strong></div>
-                    <div class="grid-ORDER TYPE">ORDER TYPE: <strong>${paymentMethod||'Prepaid'}</strong></div>
-                    <div class="grid-qr-code"><div id="${qrPlaceholderId}" class="qr-code-img"></div><small>TRACK${trackingId||'N/A'}</small></div>
-                </div>
-            `;
-        }
+        .label-details { flex-basis: 55%; padding: 10px; display: flex; flex-direction: column; justify-content: center; }
+        .label-details .detail-block { margin-bottom: 10px; }
+        .label-details .detail-block span { font-size: 10pt; display: block; text-transform: uppercase; }
+        .label-details .detail-block strong { font-size: 15pt; display: block; letter-spacing: 0.5px; }
+        
+        .label-tracking-text { padding: 10px; text-align: center; font-weight: bold; font-size: 11pt; letter-spacing: 2px; }
+    </style>
+
+    <div class="label-section">
+        <div class="label-box label-from">
+            <p class="header">FROM:</p>
+            ${logoHtml}
+            <p>${fromName}<br>${fromAddress}<br>Ph: ${fromPhone}</p>
+        </div>
+        <div class="label-box label-ship-to">
+            <p class="header">SHIP TO:</p>
+            <p class="cust-name">${name || 'N/A'}</p>
+            <p>${address || 'N/A'}</p>
+            <p class="cust-phone">Ph: ${phone || 'N/A'}</p>
+        </div>
+    </div>
+
+    <div class="label-section">
+        <div class="label-box label-qr-code">
+            <div id="${qrPlaceholderId}" class="qr-code-img"></div>
+        </div>
+        <div class="label-box label-details">
+            <div class="detail-block">
+                <span>Tracking ID</span>
+                <strong>${trackingId || 'N/A'}</strong>
+            </div>
+            <div class="detail-block">
+                <span>Payment</span>
+                <strong>${paymentText}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="label-section">
+        <div class="label-box label-tracking-text">
+            TRACK${trackingId || 'N/A'}
+        </div>
+    </div>
+
+</div>
+            `;
+        }
 
         // Generates label preview in the #label div
         function generateLabelPreview(name, address, trackingId, paymentMethod, phone) {
