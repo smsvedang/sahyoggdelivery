@@ -325,7 +325,7 @@
                     <style scoped>
                         *, *::before, *::after { box-sizing: border-box; }
                         .label-grid-container { border: 1.5px solid black !important; display: grid !important; grid-template-columns: 60% 40% !important; grid-template-rows: auto auto auto 1fr !important; width: 100mm !important; min-height: 140mm !important; height: auto !important; font-family: Arial, sans-serif !important; font-size: 10pt !important; background: white !important; margin: 0 !important; padding: 0 !important; page-break-inside: avoid !important; }
-                        .label-grid-container div { border-right: 1.5px solid black; border-bottom: 1.5px solid black; padding: 8px; }
+                        .label-grid-container div { padding: 4px 6px !important; border-right: 1px solid black; box-sizing: border-box; word-wrap: break-word; overflow: hidden; }
                         .label-grid-container div:nth-child(2n) { border-right: none; }
                         .grid-qr-code { border-bottom: none !important; }
                         .grid-header { font-weight: bold; background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-bottom: 1px solid black; }
