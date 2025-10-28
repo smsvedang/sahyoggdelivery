@@ -325,14 +325,14 @@
                     <style scoped>
                         *, *::before, *::after { box-sizing: border-box; }
                         .label-grid-container { border: 1.5px solid black !important; display: grid !important; grid-template-columns: 60% 40% !important; grid-template-rows: auto auto auto 1fr !important; width: 100mm !important; min-height: 140mm !important; height: auto !important; font-family: Arial, sans-serif !important; font-size: 10pt !important; background: white !important; margin: 0 !important; padding: 0 !important; page-break-inside: avoid !important; }
-                        .label-grid-container div { padding: 4px 6px !important; border-bottom: 1px solid black; border-right: 1px solid black; box-sizing: border-box; word-wrap: break-word; overflow: hidden; }
+                        .label-grid-container div { padding: 4px 6px !important; border-right: 1px solid black; box-sizing: border-box; word-wrap: break-word; overflow: hidden; }
                         .label-grid-container div:nth-child(2n) { border-right: none; }
                         .grid-qr-code { border-bottom: none !important; }
-                        .grid-header { font-weight: bold; background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        .grid-header { font-weight: bold; background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-bottom: 1px solid black; }
                         .grid-ship-to { grid-column: 1 / 2; grid-row: 2 / 3; }
                         .grid-from { grid-column: 2 / 3; grid-row: 2 / 3; }
                         .grid-order-id { grid-column: 1 / 2; grid-row: 3 / 4; }
-                        .grid-remarks { grid-column: 2 / 3; grid-row: 3 / 4; }
+                        .grid-ORDER TYPE { grid-column: 2 / 3; grid-row: 3 / 4; }
                         .grid-qr-code { grid-column: 1 / 3; grid-row: 4 / 5; text-align: center; padding-top: 10px !important; padding-bottom: 5px !important; border-top: 1.5px solid black; }
                         .grid-qr-code .qr-code-img img { display: block; margin: 0 auto 5px auto; width: 90px !important; height: 90px !important; }
                         .grid-qr-code small { font-size: 8pt; font-weight: bold; letter-spacing: 1px; display: block; }
@@ -341,8 +341,8 @@
                     <div class="grid-header">SHIP TO:</div> <div class="grid-header">FROM:</div>
                     <div class="grid-ship-to"><p><strong>${name||'N/A'}</strong></p><p>${address||'N/A'}</p><p>Ph: ${phone||'N/A'}</p></div>
                     <div class="grid-from">${logoHtml}<p>${businessSettings.businessAddress||'N/A'}</p><p>Ph: ${businessSettings.businessPhone||'N/A'}</p></div>
-                    <div class="grid-order-id">ORDER ID: <strong>${trackingId||'N/A'}</strong></div>
-                    <div class="grid-remarks">REMARKS: <strong>${paymentMethod||'Prepaid'}</strong></div>
+                    <div class="grid-order-id">TRACKING ID: <strong>${trackingId||'N/A'}</strong></div>
+                    <div class="grid-ORDER TYPE">ORDER TYPE: <strong>${paymentMethod||'Prepaid'}</strong></div>
                     <div class="grid-qr-code"><div id="${qrPlaceholderId}" class="qr-code-img"></div><small>TRACK${trackingId||'N/A'}</small></div>
                 </div>
             `;
