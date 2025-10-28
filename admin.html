@@ -328,7 +328,7 @@
             if(editUserFormEl) editUserFormEl.addEventListener('submit', handleEditUserSubmit);
             if(businessSettingsForm) businessSettingsForm.addEventListener('submit', handleBusinessSettingsSubmit);
             if(selectAllCheckbox) selectAllCheckbox.addEventListener('change', handleSelectAll);
-            if(deliveriesTableBody) deliveriesTableBody.addEventListener('change', updateSelectionCount);
+            if(deliveriesTableBody) deliveriesTableBody.addEventListener('change', updateSelectionCount); // Listen on body
             if(bulkReprintBtn) bulkReprintBtn.onclick = handleBulkReprint;
             if(bulkCancelBtn) bulkCancelBtn.onclick = handleBulkCancel;
             if(bulkDeleteBtn) bulkDeleteBtn.onclick = handleBulkDelete;
@@ -398,10 +398,10 @@
                 }
 
                 deliveries.forEach(d => {
-                    const row = tbody.insertRow(); // Create a new row
+                    const row = tbody.insertRow();
                     row.style.verticalAlign = 'middle';
 
-                    // Cell 0: Checkbox (Ensure this is created first)
+                    // Cell 0: Checkbox
                     const cellCheckbox = row.insertCell(0); // Explicitly insert at index 0
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
@@ -412,36 +412,22 @@
 
                     // Cell 1: Tracking ID
                     row.insertCell(1).textContent = d.trackingId || 'N/A';
-
                     // Cell 2: Customer
                     row.insertCell(2).textContent = d.customerName || 'N/A';
-
                     // Cell 3: Status
-                    const cellStatus = row.insertCell(3);
-                    cellStatus.innerHTML = `<strong>${d.currentStatus || 'N/A'}</strong>`;
-
+                    const cellStatus = row.insertCell(3); cellStatus.innerHTML = `<strong>${d.currentStatus || 'N/A'}</strong>`;
                     // Cell 4: Payment
                     row.insertCell(4).textContent = d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid';
-
                     // Cell 5: COD Status
-                    let codStatusText = 'N/A';
-                    if (d.paymentMethod === 'COD') { codStatusText = d.codPaymentStatus || 'Pending'; }
-                    row.insertCell(5).textContent = codStatusText;
-
+                    let codStatusText = 'N/A'; if (d.paymentMethod === 'COD') { codStatusText = d.codPaymentStatus || 'Pending'; } row.insertCell(5).textContent = codStatusText;
                     // Cell 6: Assigned Manager
                     row.insertCell(6).textContent = d.assignedByManager && d.assignedByManager.name ? d.assignedByManager.name : 'N/A';
-
                     // Cell 7: Assigned Boy
                     row.insertCell(7).textContent = d.assignedTo && d.assignedTo.name ? d.assignedTo.name : (d.assignedBoyDetails && d.assignedBoyDetails.name ? d.assignedBoyDetails.name + ' (Assigned)' : 'N/A');
-
                     // Cell 8: OTP
-                    const cellOtp = row.insertCell(8);
-                    cellOtp.innerHTML = `<strong>${d.otp || 'N/A'}</strong>`;
-
+                    const cellOtp = row.insertCell(8); cellOtp.innerHTML = `<strong>${d.otp || 'N/A'}</strong>`;
                     // Cell 9: Date
-                    const date = new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric'});
-                    row.insertCell(9).textContent = date;
-
+                    const date = new Date(d.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric'}); row.insertCell(9).textContent = date;
                     // Cell 10: Actions
                     const cellActions = row.insertCell(10);
                     const isCancelable = !['Delivered', 'Cancelled'].includes(d.currentStatus);
@@ -457,18 +443,14 @@
             }
         }
 
-        // --- 5. Booking Form Submit Handler (Corrected try/catch) ---
+        // --- 5. Booking Form Submit Handler ---
         async function handleBookingSubmit(e) {
              e.preventDefault();
              const submitBtn = document.getElementById('submit-btn');
              const resultDiv = document.getElementById('result');
              const labelDiv = document.getElementById('label');
              const actionButtonsDiv = document.getElementById('action-buttons');
-
-             if(!submitBtn || !resultDiv || !labelDiv || !actionButtonsDiv) {
-                 console.error("Required elements for booking form/result missing!");
-                 return;
-             }
+             if(!submitBtn || !resultDiv || !labelDiv || !actionButtonsDiv) return;
 
              submitBtn.disabled = true; submitBtn.textContent = "Booking...";
              resultDiv.innerHTML = '<p>Processing...</p>'; resultDiv.className = 'message';
@@ -483,62 +465,28 @@
              };
              console.log("Submitting booking data:", formData);
 
-             // --- Corrected try block ---
              try {
                  console.log("Attempting fetch POST /book...");
                  const response = await fetch('/book', { method: 'POST', headers, body: JSON.stringify(formData) });
-                 console.log("Fetch response received. Status:", response.status, response.statusText);
-
-                 let data;
-                 try {
-                     const responseText = await response.text();
-                     console.log("Server raw response:", responseText);
-                     data = JSON.parse(responseText);
-                     console.log("Server parsed JSON:", data);
-                 } catch (jsonError) {
-                     console.error("Failed to parse JSON response:", jsonError);
-                     if (response.ok) { throw new Error("Server sent OK status but invalid JSON."); }
-                     data = { message: `Server error ${response.status} (${response.statusText}). Response not valid JSON.` };
-                     // No need to set response.ok = false, it already is
-                 }
+                 console.log("Fetch response:", response.status, response.statusText);
+                 let data; try { const txt = await response.text(); console.log("Raw resp:", txt); data = JSON.parse(txt); console.log("Parsed JSON:", data); }
+                 catch (e) { console.error("JSON Parse Error:", e); if (response.ok) throw new Error("OK status but invalid JSON."); data = { message: `Server error ${response.status}. Invalid JSON.` }; }
 
                  if (response.ok) {
-                     console.log("Booking SUCCESSFUL on server.");
+                     console.log("Booking SUCCESSFUL.");
                      resultDiv.className = 'success';
-                     resultDiv.innerHTML = `<strong>${data.message || 'Booking Successful!'}</strong><br>Tracking ID: ${data.trackingId} | OTP: ${data.otp}`;
-
-                     console.log("Attempting label generation...");
+                     resultDiv.innerHTML = `<strong>${data.message||'Success!'}</strong><br>ID: ${data.trackingId} | OTP: ${data.otp}`;
+                     console.log("Generating label...");
                      const labelGenerated = generateLabel(formData.name, formData.address, data.trackingId, formData.paymentMethod, formData.phone);
-
                      if (labelGenerated) {
-                         console.log("Label generated successfully. Setting up buttons...");
+                         console.log("Label OK. Setting up buttons...");
                          actionButtonsDiv.style.display = 'block';
-                         setupActionButtons(data.trackingId, data.otp, formData.phone); // Call setup
-                     } else {
-                         console.error("Label generation FAILED after successful booking!");
-                         resultDiv.innerHTML += '<br><span style="color: orange;">Warning: Label generation failed. Check console.</span>';
-                     }
-                     loadAllDeliveries();
-                     e.target.reset(); // Use e.target to reset the form that was submitted
-                     toggleBillAmount('Prepaid');
-
-                 } else {
-                      console.error("Server returned FAIL status:", response.status, data.message);
-                      resultDiv.className = 'error';
-                      resultDiv.innerHTML = `<strong>Booking Failed:</strong> ${data.message || `Server error ${response.status}`}`;
-                 }
-             // --- Corrected catch and finally ---
-             } catch (error) { // Catches network errors AND errors from within the try block
-                 console.error("Error during booking process:", error); // Log the actual error object
-                 resultDiv.className = 'error';
-                 resultDiv.innerHTML = `<strong>Error:</strong> ${error.message || 'Could not connect or process failed.'}`;
-             } finally {
-                  // This block runs regardless of success or error in try
-                  submitBtn.disabled = false;
-                  submitBtn.textContent = "Book Courier";
-                  console.log("Booking process finished (finally block).");
-             }
-             // --- End of corrected try/catch/finally ---
+                         setupActionButtons(data.trackingId, data.otp, formData.phone); // Ensure this is called correctly
+                     } else { console.error("Label FAILED after booking success!"); resultDiv.innerHTML += '<br><span style="color:orange;">Warn: Label failed.</span>'; }
+                     loadAllDeliveries(); e.target.reset(); toggleBillAmount('Prepaid');
+                 } else { console.error("Server FAIL:", response.status, data.message); resultDiv.className = 'error'; resultDiv.innerHTML = `<strong>Failed:</strong> ${data.message || `Error ${response.status}`}`; }
+             } catch (error) { console.error("Booking catch Error:", error); resultDiv.className = 'error'; resultDiv.innerHTML = `<strong>Error:</strong> ${error.message || 'Connection/Process failed.'}`; }
+             finally { submitBtn.disabled = false; submitBtn.textContent = "Book Courier"; console.log("Booking finally block."); }
         }
 
         // --- 6. Manage Users Logic ---
@@ -605,32 +553,32 @@
             const qrEl = labelDiv.querySelector('#qrcode-tracking');
             if (qrEl && trackingId) { qrEl.innerHTML=''; try { new QRCode(qrEl, { text: trackingId, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H }); return true; } catch (e) { console.error("QR Error:", e); qrEl.innerHTML='QR Err'; } } else { console.error("QR Placeholder/ID missing."); } return false;
         }
-        // --- This function definition was missing in the previous compressed code ---
         function setupActionButtons(trackingId, otp, phone) {
-            console.log("Setting up action buttons for:", trackingId);
+            console.log("Setting up action buttons for:", trackingId); // Added log
             const shareBtn = document.getElementById('share-btn');
             const printBtn = document.getElementById('print-btn');
 
             if (shareBtn) {
                 shareBtn.onclick = null; // Remove previous listener
                 shareBtn.onclick = async () => {
-                    console.log("Share button clicked!");
+                    console.log("Share button clicked!"); // Added log
                     const shareText = `Thanks for choosing Sahyog Medical!\nYour Tracking ID: ${trackingId}\nYour OTP for delivery: ${otp}\nTrack here: ${window.location.origin}/track`;
                     if (navigator.share) {
-                        console.log("Attempting navigator.share...");
+                        console.log("Attempting navigator.share..."); // Added log
                         try { await navigator.share({ title: 'Your Order is Booked!', text: shareText }); console.log('Shared OK'); }
                         catch (err) {
                             console.error("Share failed:", err);
                             if (navigator.clipboard) {
+                                console.log("Falling back to clipboard..."); // Added log
                                 try { await navigator.clipboard.writeText(shareText); alert('Details copied!'); }
-                                catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log(shareText); }
-                            } else { alert('Share/Copy failed.'); console.log(shareText); }
+                                catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log("Manual Copy:\n", shareText); }
+                            } else { alert('Share/Copy failed.'); console.log("Manual Copy:\n", shareText); }
                         }
                     } else if (navigator.clipboard) {
-                        console.log("Attempting clipboard...");
+                        console.log("Attempting clipboard directly..."); // Added log
                         try { await navigator.clipboard.writeText(shareText); alert('Details copied!'); }
-                        catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log(shareText); }
-                    } else { alert('Share/Copy failed.'); console.log(shareText); }
+                        catch (clipErr) { console.error("Clipboard failed:", clipErr); alert('Copy failed.'); console.log("Manual Copy:\n", shareText); }
+                    } else { alert('Share/Copy failed.'); console.log("Manual Copy:\n", shareText); }
                 };
             } else { console.error("#share-btn missing!"); }
 
@@ -638,8 +586,16 @@
                 printBtn.onclick = printLabelInternal; // Assign print function
             } else { console.error("#print-btn missing!"); }
         }
-        // --- End of setupActionButtons function ---
-        function printLabelInternal() { const label = document.getElementById('label'); if (!label || label.style.display === 'none') { alert("Generate label first."); return; } window.print(); }
+        function printLabelInternal() {
+            console.log("Print label button clicked"); // Added log
+            const label = document.getElementById('label');
+            if (!label || label.style.display === 'none') {
+                 alert("Generate label first.");
+                 console.log("Print aborted: Label not visible or not found");
+                 return;
+            }
+            window.print();
+        }
 
         // --- 9. Modal Helpers ---
         function openModal(modalId) { const modal = document.getElementById(modalId); if(modal) modal.style.display = 'flex'; }
@@ -652,12 +608,12 @@
 
         // --- 11. Business Settings Logic ---
         async function loadBusinessSettings() { // Loads when tab is opened
-            const resultDiv=document.getElementById('settings-result'),logoPreview=document.getElementById('logo-preview'); if(!resultDiv||!logoPreview)return;
-            resultDiv.textContent='Loading...'; resultDiv.className='message';
+            const resDiv=document.getElementById('settings-result'),logoPre=document.getElementById('logo-preview'); if(!resDiv||!logoPre)return;
+            resDiv.textContent='Loading...';resDiv.className='message';
             try{const r=await fetch('/admin/settings',{headers});if(r.status===401){window.location.href='/login';return}if(!r.ok)throw new Error(`HTTP ${r.status}`); const s=await r.json(); businessSettings=s;
             const nameEl=document.getElementById('business-name'),addrEl=document.getElementById('business-address'),phoneEl=document.getElementById('business-phone'),logoUrlEl=document.getElementById('business-logo-url'),upiIdEl=document.getElementById('upi-id'),upiNameEl=document.getElementById('upi-name');
             if(nameEl)nameEl.value=s.businessName||''; if(addrEl)addrEl.value=s.businessAddress||''; if(phoneEl)phoneEl.value=s.businessPhone||''; if(logoUrlEl)logoUrlEl.value=s.logoUrl||''; if(upiIdEl)upiIdEl.value=s.upiId||''; if(upiNameEl)upiNameEl.value=s.upiName||'';
-            if(s.logoUrl){logoPreview.src=s.logoUrl;logoPreview.style.display='block'}else{logoPreview.style.display='none'} resultDiv.textContent='';
+            if(s.logoUrl){logoPre.src=s.logoUrl;logoPre.style.display='block'}else{logoPre.style.display='none'} resDiv.textContent='';
             }catch(e){console.error("Load settings error:",e);resDiv.textContent=`Error: ${e.message}`;resDiv.className='message error'}
         }
         async function loadBusinessSettingsOnLoad() { // Loads once on page load
@@ -705,198 +661,80 @@
             updateSelectionCount();
         }
 
-       // --- 13. Bulk Action Handlers ---
+        // --- 13. Bulk Action Handlers ---
         function handleBulkReprint(){
-            const ids = getSelectedDeliveryIds();
-            if(ids.length === 0){ alert("Please select deliveries to reprint."); return; }
+            const ids=getSelectedDeliveryIds();
+            if(ids.length===0){ alert("Please select deliveries to reprint."); return; }
             console.log("Generating bulk print for IDs:", ids);
 
             let combinedLabelsHtml = '';
-            let qrCodePromises = []; // To track QR code generation
+            let qrCodeTasks = []; // Tasks for QR generation in the print window
 
             ids.forEach((id, index) => {
                 const delivery = allDeliveriesData.find(d => d._id === id);
-                if (!delivery) {
-                    console.warn(`Delivery data not found for ID: ${id}`);
-                    return; // Skip if data is missing
-                }
+                if (!delivery) { console.warn(`Data not found for ID: ${id}`); return; }
 
-                // --- Generate HTML for one label ---
-                const logoHtml = businessSettings.logoUrl ? `<img src="${businessSettings.logoUrl}" alt="Logo" style="max-height:40px;max-width:120px;margin-bottom:5px;">` : `<strong>${businessSettings.businessName||'Sahyog'}</strong>`;
-                // Use a unique ID for each QR placeholder in the combined view
-                const qrPlaceholderId = `bulk-qr-${id}`;
+                const qrPlaceholderId = `bulk-qr-${id}-${Date.now()}`;
+                const pageBreakStyle = index > 0 ? 'page-break-before: always; margin-top: 10mm;' : 'margin-top: 0;';
 
-                // Add page break style *before* the next label (except the first one)
-                const pageBreakStyle = index > 0 ? 'page-break-before: always; margin-top: 20px;' : '';
+                combinedLabelsHtml += `<div class="label-print-instance" style="${pageBreakStyle}">`; // Added class
+                combinedLabelsHtml += generateSingleLabelHtml(
+                    delivery.customerName, delivery.customerAddress, delivery.trackingId,
+                    delivery.paymentMethod, delivery.customerPhone, qrPlaceholderId
+                );
+                combinedLabelsHtml += `</div>`;
+                qrCodeTasks.push({ id: qrPlaceholderId, text: delivery.trackingId });
+            });
 
-                combinedLabelsHtml += `
-                    <div class="label-print-instance" style="${pageBreakStyle} border: 2px dashed #6c757d; padding: 15px; background: white; width: 95%; margin-bottom: 20px;">
-                        {/* Copy the inner structure from generateLabel's innerHTML, using delivery data */}
-                       <style>
-                        body {
-                            margin: 5mm; /* Reduce body margin */
-                        }
-                        .label-print-instance {
-                            page-break-before: always;
-                            margin: 0 0 10mm 0 !important; /* Remove horizontal margin, add bottom margin */
-                            border: none !important; /* Remove the dashed border for print */
-                            width: 100% !important; /* Use full available width */
-                            box-shadow: none !important;
-                            padding: 0 !important; /* Remove padding around the label container */
-                        }
-                        .label-print-instance:first-child {
-                            page-break-before: avoid;
-                            margin-top: 0 !important; /* No top margin for the first label */
-                        }
-                        /* Styles for the grid itself */
-                        .label-grid-container {
-                            border: 1.5px solid black !important; /* Ensure border prints */
-                            font-size: 9pt !important; /* Slightly smaller font */
-                            width: 100% !important;
-                            margin: 0 !important;
-                            padding: 0 !important;
-                             /* Add other grid styles if needed */
-                        }
-                         .label-grid-container div {
-                             padding: 4px 6px !important; /* Reduce cell padding */
-                         }
-                        #qrcode-tracking img { /* Make QR slightly smaller */
-                            width: 90px !important;
-                            height: 90px !important;
-                        }
-                        @media print {
-                            body { margin: 0; } /* Remove body margin for print */
-                             -webkit-print-color-adjust: exact; /* Force colors/borders */
-                             print-color-adjust: exact;
-                        }
-                    </style>
-                        <div class="label-grid-container">
-                            <div class="grid-header">SHIP TO:</div> <div class="grid-header">FROM:</div>
-                            <div class="grid-ship-to"><p><strong>${delivery.customerName||'N/A'}</strong></p><p>${delivery.customerAddress||'N/A'}</p><p>Ph: ${delivery.customerPhone||'N/A'}</p></div>
-                            <div class="grid-from">${logoHtml}<p>${businessSettings.businessAddress||'N/A'}</p><p>Ph: ${businessSettings.businessPhone||'N/A'}</p></div>
-                            <div class="grid-order-id">ORDER ID: <strong>${delivery.trackingId||'N/A'}</strong></div>
-                            <div class="grid-remarks">REMARKS: <strong>${delivery.paymentMethod||'Prepaid'}</strong></div>
-                            <div class="grid-qr-code">
-                                <div id="${qrPlaceholderId}" class="qr-code-img"></div> {/* Unique placeholder */}
-                                <small>TRACK${delivery.trackingId||'N/A'}</small>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                // Add QR generation task
-                qrCodePromises.push({ id: qrPlaceholderId, text: delivery.trackingId });
-            }); // End of forEach loop
-
-            // --- Open a new window and print ---
             const printWindow = window.open('', '_blank', 'width=800,height=600');
-            if (!printWindow) {
-                alert("Please allow popups for this site to print multiple labels.");
-                return;
-            }
+            if (!printWindow) { alert("Please allow popups for bulk print."); return; }
+
             printWindow.document.write(`
-                <html>
-                <head>
-                    <title>Print Labels</title>
-                    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
-                    <style>
-                        body { margin: 10px; }
-                        /* Ensure page breaks work */
-                        @media print {
-                            .label-print-instance { page-break-before: always; margin: 5mm !important; border: none !important; }
-                            .label-print-instance:first-child { page-break-before: avoid; }
-                            body { margin: 0; } /* Remove body margin for print */
-                        }
-                    </style>
-                </head>
-                <body>
+                <html><head><title>Print Labels</title>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+                <style>
+                    body { margin: 5mm; }
+                    @media print {
+                        body { margin: 0; }
+                        .label-print-instance { page-break-before: always; margin: 5mm !important; } /* Simplified print margin */
+                        .label-print-instance:first-child { page-break-before: avoid; margin-top: 5mm !important; } /* Ensure first label has margin */
+                        .label-grid-container { border: 1.5px solid black !important; }
+                         -webkit-print-color-adjust: exact; print-color-adjust: exact;
+                    }
+                </style>
+                </head><body>
                     ${combinedLabelsHtml}
                     <script>
-                        // Generate QR codes after HTML is loaded in the new window
-                        const qrTasks = ${JSON.stringify(qrCodePromises)};
+                        const qrTasks = ${JSON.stringify(qrCodeTasks)};
                         qrTasks.forEach(task => {
                             const el = document.getElementById(task.id);
                             if (el && task.text) {
-                                try {
-                                    new QRCode(el, {
-                                        text: task.text,
-                                        width: 100,
-                                        height: 100,
-                                        correctLevel: QRCode.CorrectLevel.H
-                                    });
-                                } catch (e) {
-                                    console.error("QR Error in print window:", e);
-                                    el.innerHTML = 'QR Error';
-                                }
+                                try { new QRCode(el, { text: task.text, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H }); }
+                                catch (e) { console.error("QR Error:", e); el.innerHTML = 'QR Error'; }
                             }
                         });
-                        // Print after a short delay for QR codes to render
-                        setTimeout(() => {
-                            window.print();
-                            // Optional: Close window after printing, but browsers might block this
-                            // setTimeout(() => window.close(), 1000);
-                        }, 500); // Adjust delay if needed
+                        setTimeout(() => { window.print(); }, 500);
                     <\/script>
-                </body>
-                </html>
+                </body></html>
             `);
-            printWindow.document.close(); // Important for some browsers
+            printWindow.document.close();
 
-            // Deselect checkboxes after initiating print
+            const selectAll = document.getElementById('select-all-checkbox');
+            if(selectAll) selectAll.checked = false;
             document.querySelectorAll('.delivery-checkbox:checked').forEach(cb => cb.checked = false);
             updateSelectionCount();
         }
         async function handleBulkCancel(){
             const ids=getSelectedDeliveryIds();
-            if(ids.length===0){ alert("Please select deliveries to cancel."); return; }
-            if(!confirm(`Are you sure you want to cancel ${ids.length} selected deliveries?`)) return;
-            console.log("Cancelling deliveries:", ids);
-            try{
-                const r=await fetch('/admin/deliveries/bulk-cancel',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})});
-                const d=await r.json();
-                if(!r.ok) throw new Error(d.message||'Bulk cancel failed');
-                alert(`Successfully cancelled ${d.cancelledCount||ids.length} deliveries.`);
-                loadAllDeliveries();
-                const sa=document.getElementById('select-all-checkbox'); if(sa)sa.checked=false;
-                updateSelectionCount();
-            }catch(e){ console.error("Bulk cancel:",e); alert(`Error during bulk cancel: ${e.message}`); }
+            if(ids.length===0){ alert("Select deliveries."); return; }
+            if(!confirm(`Cancel ${ids.length} deliveries?`)) return;
+            try{const r=await fetch('/admin/deliveries/bulk-cancel',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Bulk cancel failed'); alert(`Cancelled ${d.cancelledCount||ids.length}.`); loadAllDeliveries(); const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;updateSelectionCount();}catch(e){console.error("Bulk cancel:",e);alert(`Error: ${e.message}`)}
         }
         async function handleBulkDelete(){
             const ids=getSelectedDeliveryIds();
-            if(ids.length===0){ alert("Please select deliveries to delete."); return; }
-            if(!confirm(`DANGER! Are you sure you want to permanently DELETE ${ids.length} selected delivery records?`)) return;
-            console.log("Deleting deliveries:", ids);
-             try{
-                // Ensure 'headers' (containing Authorization) is passed
-                const response = await fetch('/admin/deliveries/bulk-delete',{
-                    method:'POST',
-                    headers: headers, // Pass the headers variable
-                    body:JSON.stringify({deliveryIds:ids})
-                });
-
-                // Log status and get raw response text first
-                console.log("Bulk Delete Response Status:", response.status);
-                const responseText = await response.text();
-                console.log("Bulk Delete Raw Response:", responseText);
-
-                let data;
-                try {
-                    data = JSON.parse(responseText); // Try parsing as JSON
-                } catch (parseError) {
-                    // If parsing fails, throw an error with the raw text
-                    throw new Error(`Server returned non-JSON response: ${responseText}`);
-                }
-
-                if(!response.ok) throw new Error(data.message || `Bulk delete failed with status ${response.status}`);
-
-                alert(`Successfully deleted ${data.deletedCount || ids.length} deliveries.`);
-                loadAllDeliveries();
-                const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;
-                updateSelectionCount();
-            }catch(e){
-                console.error("Bulk delete error:",e);
-                // Display the actual error message received or caught
-                alert(`Error during bulk delete: ${e.message}`);
-            }
+            if(ids.length===0){ alert("Select deliveries."); return; }
+            if(!confirm(`DELETE ${ids.length} records permanently?`)) return;
+            try{const r=await fetch('/admin/deliveries/bulk-delete',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Bulk delete failed'); alert(`Deleted ${d.deletedCount||ids.length}.`); loadAllDeliveries(); const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;updateSelectionCount();}catch(e){console.error("Bulk delete:",e);alert(`Error: ${e.message}`)}
         }
 
     </script>
