@@ -586,18 +586,35 @@
     <div class="footer">
         Copyright © <span id="copyright-year"></span> Sahyog Medical. All Rights Reserved.
     </div>
-
-    <script>
+ 
+<script>
+        // --- 1. Global Variables & Constants ---
         const token = localStorage.getItem('authToken');
         const role = localStorage.getItem('userRole');
         const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-        let allDeliveriesData = []; // Store delivery data for reprint
+        let allDeliveriesData = []; // Store delivery data for reprint/bulk actions
         let allUsersData = []; // Store user data for editing
         let businessSettings = {}; // Holds loaded business settings
 
-        // --- Helper Functions (Define these early) ---
+        // --- 2. Tab Logic (Must be global for onclick) ---
+        function openTab(event, tabName) {
+            let i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) { if(tabcontent[i]) tabcontent[i].style.display = "none"; }
+            tablinks = document.getElementsByClassName("tab-link");
+            for (i = 0; i < tablinks.length; i++) { if(tablinks[i]) tablinks[i].className = tablinks[i].className.replace(" active", ""); }
+            const currentTab = document.getElementById(tabName);
+            if (currentTab) currentTab.style.display = "block";
+            // Check if event exists before accessing currentTarget (for calls from reprint)
+            if (event && event.currentTarget) event.currentTarget.className += " active";
+            
+            // Refresh data when tabs are opened
+            if (tabName === 'tab-deliveries') loadAllDeliveries();
+            if (tabName === 'tab-manage') loadAllUsers();
+            if (tabName === 'tab-settings') loadBusinessSettings();
+        }
 
-        // --- 9. Modal Helpers ---
+        // --- 3. Modal Helpers ---
         function openModal(modalId) {
             const modal = document.getElementById(modalId);
             if(modal) modal.style.display = 'flex';
@@ -613,52 +630,22 @@
             }
         }
 
-        // --- 10. Helper Functions ---
+        // --- 4. Helper Functions ---
         function toggleBillAmount(value) {
             const div = document.getElementById('billAmountDiv');
             if(div) div.style.display = (value === 'COD') ? 'block' : 'none';
         }
 
-        // --- 12. Bulk Action Helper Functions ---
-        function getSelectedDeliveryIds(){
-            const ids=[];
-            document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').forEach(cb=>ids.push(cb.value));
-            return ids;
-        }
-        function updateSelectionCount(){
-            const count=document.querySelectorAll('#all-deliveries-body .delivery-checkbox:checked').length;
-            const countSpan=document.getElementById('selection-count');
-            const selAll=document.getElementById('select-all-checkbox');
-            const allCb=document.querySelectorAll('#all-deliveries-body .delivery-checkbox');
-            if(countSpan) countSpan.textContent=`(${count} selected)`;
-            if(selAll && allCb.length > 0){
-                selAll.checked=(count === allCb.length);
-                selAll.indeterminate=(count > 0 && count < allCb.length);
-            } else if(selAll){
-                selAll.checked = false;
-                selAll.indeterminate = false;
-            }
-        }
-        function handleSelectAll(e){
-            if (!e || !e.target) return; // Ensure event and target exist
-            document.querySelectorAll('#all-deliveries-body .delivery-checkbox').forEach(cb => {
-                cb.checked=e.target.checked;
-            });
-            updateSelectionCount();
-        }
-
-        // --- 8. Label Generation & Print ---
+        // --- 5. Label Generation & Print ---
         // Generates the HTML string for ONE label (Portrait Optimized)
         function generateSingleLabelHtml(name, address, trackingId, paymentMethod, phone, qrPlaceholderId) {
             const logoHtml = businessSettings.logoUrl
                 ? `<img src="${businessSettings.logoUrl}" alt="${businessSettings.businessName || 'Logo'}" style="max-height: 40px; max-width: 120px; margin-bottom: 5px;">`
                 : `<strong>${businessSettings.businessName || 'Sahyog Medical'}</strong>`;
 
-            // Updated CSS for Portrait Layout
             return `
-                <div class="label-grid-container" style="border: 1.5px solid black; display: grid; grid-template-columns: 60% 40%; grid-template-rows: auto auto auto 1fr; width: 100mm; /* Fixed width for portrait */ min-height: 140mm; /* Minimum height */ height: auto; font-family: Arial, sans-serif; font-size: 10pt; background: white; margin-bottom: 5mm; page-break-inside: avoid;">
-                    <style scoped> /* Scoped styles for print window */
-                        /* Reset box-sizing for print */
+                <div class="label-grid-container" style="border: 1.5px solid black; display: grid; grid-template-columns: 60% 40%; grid-template-rows: auto auto auto 1fr; width: 100mm; min-height: 140mm; height: auto; font-family: Arial, sans-serif; font-size: 10pt; background: white; margin-bottom: 5mm; page-break-inside: avoid;">
+                    <style scoped>
                         *, *::before, *::after { box-sizing: border-box; }
                         .label-grid-container { border: 1.5px solid black !important; display: grid !important; grid-template-columns: 60% 40% !important; grid-template-rows: auto auto auto 1fr !important; width: 100mm !important; min-height: 140mm !important; height: auto !important; font-family: Arial, sans-serif !important; font-size: 10pt !important; background: white !important; margin: 0 !important; padding: 0 !important; page-break-inside: avoid !important; }
                         .label-grid-container div { padding: 4px 6px !important; border-bottom: 1px solid black; border-right: 1px solid black; box-sizing: border-box; word-wrap: break-word; overflow: hidden; }
@@ -683,21 +670,23 @@
                 </div>
             `;
         }
+
         // Generates label preview in the #label div
         function generateLabelPreview(name, address, trackingId, paymentMethod, phone) {
             const labelDiv = document.getElementById('label');
             if (!labelDiv) { console.error("#label preview div not found!"); return false; }
-            const qrPlaceholderId = 'qrcode-tracking-preview';
+            const qrPlaceholderId = 'qrcode-tracking-preview'; // Unique ID for preview
             labelDiv.innerHTML = generateSingleLabelHtml(name, address, trackingId, paymentMethod, phone, qrPlaceholderId);
             labelDiv.style.display = 'block';
             const qrElement = labelDiv.querySelector(`#${qrPlaceholderId}`);
             if (qrElement && trackingId) {
-                qrElement.innerHTML = '';
+                qrElement.innerHTML = ''; // Clear previous
                 try { new QRCode(qrElement, { text: trackingId, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H }); return true; }
                 catch (qrError) { console.error("QR Error:", qrError); qrElement.innerHTML = '<p style="color:red; font-size: small;">QR Error</p>'; }
             } else { console.error("QR Placeholder/TrackingID missing for preview."); }
             return false;
         }
+
         // Sets up Print and Share button actions
         function setupActionButtons(trackingId, otp, phone) {
             console.log("Setting up action buttons for:", trackingId);
@@ -731,6 +720,7 @@
                  };
             } else { console.error("#print-btn missing!"); }
         }
+
         // Function specifically for printing a single label
         function printSingleLabel(name, address, trackingId, paymentMethod, phone) {
             const qrPlaceholderId = `print-qr-${trackingId}-${Date.now()}`;
@@ -740,6 +730,7 @@
             printWindow.document.write(`<html><head><title>Print Label - ${trackingId}</title><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><style>body{margin:0;padding:0}@page{size:A4 portrait;margin:5mm}.label-grid-container{border:1.5px solid black !important;margin:0 !important;width:190mm !important;height:270mm !important;box-sizing:border-box;page-break-inside:avoid}@media print{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>${labelHtml}<script>try{const el=document.getElementById('${qrPlaceholderId}');if(el&&'${trackingId}'){new QRCode(el,{text:'${trackingId}',width:100,height:100,correctLevel:QRCode.CorrectLevel.H})}else{console.error("QR Element/ID missing")}}catch(e){console.error("QR Error:",e);const el=document.getElementById('${qrPlaceholderId}');if(el)el.innerHTML='QR Error'}setTimeout(()=>{window.print()},500);<\/script></body></html>`);
             printWindow.document.close();
         }
+
         // Internal print function for bulk reprint compatibility
         function printLabelInternal() {
             console.log("Print label button clicked (Internal handler - likely for reprint action)");
@@ -748,17 +739,14 @@
             window.print(); // Uses @media print CSS
         }
 
-
-        // --- Main Data Loading & Event Handlers ---
-
         // --- 11. Business Settings Logic ---
         async function loadBusinessSettings() { // Loads when tab is opened
-            const resDiv=document.getElementById('settings-result'),logoPre=document.getElementById('logo-preview'); if(!resDiv||!logoPre)return;
-            resDiv.textContent='Loading...';resDiv.className='message';
+            const resultDiv=document.getElementById('settings-result'),logoPreview=document.getElementById('logo-preview'); if(!resultDiv||!logoPreview)return;
+            resultDiv.textContent='Loading...';resDiv.className='message';
             try{const r=await fetch('/admin/settings',{headers});if(r.status===401){window.location.href='/login';return}if(!r.ok)throw new Error(`HTTP ${r.status}`); const s=await r.json(); businessSettings=s;
             const nameEl=document.getElementById('business-name'),addrEl=document.getElementById('business-address'),phoneEl=document.getElementById('business-phone'),logoUrlEl=document.getElementById('business-logo-url'),upiIdEl=document.getElementById('upi-id'),upiNameEl=document.getElementById('upi-name');
             if(nameEl)nameEl.value=s.businessName||''; if(addrEl)addrEl.value=s.businessAddress||''; if(phoneEl)phoneEl.value=s.businessPhone||''; if(logoUrlEl)logoUrlEl.value=s.logoUrl||''; if(upiIdEl)upiIdEl.value=s.upiId||''; if(upiNameEl)upiNameEl.value=s.upiName||'';
-            if(s.logoUrl){logoPre.src=s.logoUrl;logoPre.style.display='block'}else{logoPre.style.display='none'} resDiv.textContent='';
+            if(s.logoUrl){logoPreview.src=s.logoUrl;logoPreview.style.display='block'}else{logoPreview.style.display='none'} resultDiv.textContent='';
             }catch(e){console.error("Load settings error:",e);resDiv.textContent=`Error: ${e.message}`;resDiv.className='message error'}
         }
         async function loadBusinessSettingsOnLoad() { // Loads once on page load
@@ -894,6 +882,7 @@
         }
 
     </script>
+
     </body>
 
     </html>
