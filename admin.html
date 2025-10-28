@@ -608,12 +608,12 @@
 
         // --- 11. Business Settings Logic ---
         async function loadBusinessSettings() { // Loads when tab is opened
-            const resDiv=document.getElementById('settings-result'),logoPre=document.getElementById('logo-preview'); if(!resDiv||!logoPre)return;
-            resDiv.textContent='Loading...';resDiv.className='message';
+            const resultDiv=document.getElementById('settings-result'),logoPreview=document.getElementById('logo-preview'); if(!resultDiv||!logoPreview)return;
+            resultDiv.textContent='Loading...';resultDiv.className='message';
             try{const r=await fetch('/admin/settings',{headers});if(r.status===401){window.location.href='/login';return}if(!r.ok)throw new Error(`HTTP ${r.status}`); const s=await r.json(); businessSettings=s;
             const nameEl=document.getElementById('business-name'),addrEl=document.getElementById('business-address'),phoneEl=document.getElementById('business-phone'),logoUrlEl=document.getElementById('business-logo-url'),upiIdEl=document.getElementById('upi-id'),upiNameEl=document.getElementById('upi-name');
             if(nameEl)nameEl.value=s.businessName||''; if(addrEl)addrEl.value=s.businessAddress||''; if(phoneEl)phoneEl.value=s.businessPhone||''; if(logoUrlEl)logoUrlEl.value=s.logoUrl||''; if(upiIdEl)upiIdEl.value=s.upiId||''; if(upiNameEl)upiNameEl.value=s.upiName||'';
-            if(s.logoUrl){logoPre.src=s.logoUrl;logoPre.style.display='block'}else{logoPre.style.display='none'} resDiv.textContent='';
+            if(s.logoUrl){logoPreview.src=s.logoUrl;logoPreview.style.display='block'}else{logoPreview.style.display='none'} resultDiv.textContent='';
             }catch(e){console.error("Load settings error:",e);resDiv.textContent=`Error: ${e.message}`;resDiv.className='message error'}
         }
         async function loadBusinessSettingsOnLoad() { // Loads once on page load
@@ -675,8 +675,11 @@
                 if (!delivery) { console.warn(`Data not found for ID: ${id}`); return; }
 
                 const qrPlaceholderId = `bulk-qr-${id}-${Date.now()}`;
+                // Add page break style for all labels in bulk print
                 const pageBreakStyle = index > 0 ? 'page-break-before: always; margin-top: 10mm;' : 'margin-top: 0;';
 
+                // Use the helper function to generate HTML for this label
+                // Add the wrapper div with page break style
                 combinedLabelsHtml += `<div class="label-print-instance" style="${pageBreakStyle}">`; // Added class
                 combinedLabelsHtml += generateSingleLabelHtml(
                     delivery.customerName, delivery.customerAddress, delivery.trackingId,
@@ -698,7 +701,7 @@
                         body { margin: 0; }
                         .label-print-instance { page-break-before: always; margin: 5mm !important; } /* Simplified print margin */
                         .label-print-instance:first-child { page-break-before: avoid; margin-top: 5mm !important; } /* Ensure first label has margin */
-                        .label-grid-container { border: 1.5px solid black !important; }
+                        .label-grid-container { border: 1.5px solid black !important; } /* Ensure border prints */
                          -webkit-print-color-adjust: exact; print-color-adjust: exact;
                     }
                 </style>
