@@ -8,386 +8,72 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         /* General Styles */
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f7f6;
-            margin: 0;
-            padding: 20px;
-        }
-
-        h1,
-        h2 {
-            color: #333;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #ccc;
-            margin-bottom: 20px;
-        }
-
-        .header button {
-            padding: 8px 12px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button {
-            cursor: pointer;
-            border-radius: 5px;
-            padding: 10px 15px;
-            border: none;
-            margin: 2px;
-        }
-
-        button.btn-primary {
-            background-color: #007bff;
-            color: white;
-        }
-
-        button.btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-
-        button.btn-danger {
-            background-color: #dc3545;
-            color: white;
-        }
-
-        button.btn-warning {
-            background-color: #ffc107;
-            color: black;
-        }
-
-        button.btn-success {
-            background-color: #28a745;
-            color: white;
-        }
-
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        input,
-        select {
-            width: calc(100% - 24px);
-            /* Account for padding */
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-
-        label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: #555;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background: white;
-        }
-
-        /* Added background to table */
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-            vertical-align: middle;
-        }
-
-        /* Align middle */
-        th {
-            background-color: #e9ecef;
-        }
-
-        /* Slightly darker header */
-        td button.btn-sm {
-            padding: 5px 8px;
-            font-size: 0.85em;
-            margin-right: 3px;
-        }
-
-        /* Smaller action buttons */
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            color: #888;
-            font-size: 0.9em;
-        }
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        h1, h2 { color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #ccc; margin-bottom: 20px;}
+        .header button { padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button { cursor: pointer; border-radius: 5px; padding: 10px 15px; border: none; margin: 2px; }
+        button.btn-primary { background-color: #007bff; color: white; }
+        button.btn-secondary { background-color: #6c757d; color: white; }
+        button.btn-danger { background-color: #dc3545; color: white; }
+        button.btn-warning { background-color: #ffc107; color: black; }
+        button.btn-success { background-color: #28a745; color: white; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        input, select { width: calc(100% - 24px); padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; color: #555; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: middle; }
+        th { background-color: #e9ecef; }
+        td button.btn-sm { padding: 5px 8px; font-size: 0.85em; margin-right: 3px;}
+        .footer { text-align: center; margin-top: 30px; color: #888; font-size: 0.9em; }
 
         /* Tabs */
-        .tab-bar {
-            border-bottom: 2px solid #dee2e6;
-            margin-bottom: 20px;
-        }
-
-        /* Updated border color */
-        .tab-bar button {
-            background: #e9ecef;
-            border: none;
-            padding: 10px 15px;
-            cursor: pointer;
-            font-size: 16px;
-            border-radius: 5px 5px 0 0;
-            margin-bottom: -2px;
-            border: 1px solid #dee2e6;
-            border-bottom: none;
-        }
-
-        /* Added subtle border */
-        .tab-bar button.active {
-            background: #ffffff;
-            border-bottom: 2px solid #ffffff;
-            font-weight: bold;
-        }
-
-        /* Changed active border */
-        .tab-content {
-            display: none;
-            padding-top: 10px;
-        }
-
-        /* Reduced top padding */
-        .tab-content.active {
-            display: block;
-        }
-
-        .container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-
-        .card {
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            padding: 25px;
-            flex: 1;
-            min-width: 400px;
-            border: 1px solid #dee2e6;
-        }
-
-        /* Added subtle border */
+        .tab-bar { border-bottom: 2px solid #dee2e6; margin-bottom: 20px; }
+        .tab-bar button { background: #e9ecef; border: none; padding: 10px 15px; cursor: pointer; font-size: 16px; border-radius: 5px 5px 0 0; margin-bottom: -2px; border: 1px solid #dee2e6; border-bottom: none; }
+        .tab-bar button.active { background: #ffffff; border-bottom: 2px solid #ffffff; font-weight: bold; }
+        .tab-content { display: none; padding-top: 10px; }
+        .tab-content.active { display: block; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .card { background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 25px; flex: 1; min-width: 400px; border: 1px solid #dee2e6; }
 
         /* Results & Label */
-        #result {
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            word-break: break-all;
-            font-size: 0.95em;
-        }
-
-        #result.success {
-            background-color: #d1e7dd;
-            color: #0f5132;
-            border: 1px solid #badbcc;
-        }
-
-        /* Updated success colors */
-        #result.error {
-            background-color: #f8d7da;
-            color: #842029;
-            border: 1px solid #f5c2c7;
-        }
-
-        /* Updated error colors */
-        #label {
-            border: 2px dashed #6c757d;
-            padding: 20px;
-            display: none;
-            margin-top: 20px;
-            background: white;
-        }
-
-        #label-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
-
-        #qrcode-tracking {
-            width: 128px;
-            height: 128px;
-            margin: 10px auto;
-        }
-
-        #qrcode-tracking img {
-            display: block;
-            margin: auto;
-        }
-
-        /* Center QR */
+        #result { padding: 15px; border-radius: 5px; margin-bottom: 20px; word-break: break-all; font-size: 0.95em; }
+        #result.success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+        #result.error { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+        #label { border: 2px dashed #6c757d; padding: 20px; display: none; margin-top: 20px; background: white; }
+        #label-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 15px; }
+        #qrcode-tracking { width: 128px; height: 128px; margin: 10px auto; }
+        #qrcode-tracking img { display: block; margin: auto; }
 
         /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.5);
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            background-color: #fefefe;
-            padding: 30px;
-            border: 1px solid #888;
-            border-radius: 8px;
-            width: 80%;
-            max-width: 500px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Added shadow */
-        .modal-content h2 {
-            margin-top: 0;
-        }
-
-        .close-button {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-            line-height: 1;
-        }
-
-        .close-button:hover {
-            color: black;
-        }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fefefe; padding: 30px; border: 1px solid #888; border-radius: 8px; width: 80%; max-width: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .modal-content h2 { margin-top: 0; }
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; }
+        .close-button:hover { color: black; }
 
         /* User Status Indicator */
-        .status-active {
-            color: #198754;
-            font-weight: bold;
-        }
-
-        /* Bootstrap green */
-        .status-inactive {
-            color: #dc3545;
-            font-weight: bold;
-        }
-
-        /* Bootstrap red */
+        .status-active { color: #198754; font-weight: bold; }
+        .status-inactive { color: #dc3545; font-weight: bold; }
 
         /* Print Specific Styles */
         @media print {
-            body * {
-                visibility: hidden;
-            }
-
-            #label,
-            #label * {
-                visibility: visible;
-            }
-
-            #label {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 95%;
-                height: auto;
-                /* Keep the border for printing */
-                border: 2px dashed #6c757d !important;
-                box-shadow: none;
-                margin: 10px;
-                padding: 10px;
-                /* Adjust padding if needed */
-                background: white !important;
-                /* Ensure background is white */
-                -webkit-print-color-adjust: exact;
-                /* Force colors/borders in Chrome */
-                print-color-adjust: exact;
-                /* Standard */
-            }
-
-            #label p {
-                margin: 3px 0;
-                font-size: 10pt;
-            }
-
-            #label h3 {
-                font-size: 12pt;
-                margin: 5px 0;
-            }
-
-            #label span {
-                font-size: 10pt;
-            }
-
-            #qrcode-tracking img {
-                width: 100px !important;
-                height: 100px !important;
-            }
-
-            button,
-            .header,
-            .tab-bar,
-            .tab-content:not(#tab-book),
-            #booking-form,
-            #result,
-            #action-buttons,
-            .footer,
-            #manage-users-area,
-            #all-deliveries-table {
-                display: none !important;
-            }
-
-            #tab-book,
-            .container,
-            #result-area {
-                display: block !important;
-            }
-
-            /* Ensure container is visible */
-            #label {
-                display: block !important;
-            }
-
-            /* Ensure label itself is visible */
+            body * { visibility: hidden; }
+            #label, #label * { visibility: visible; }
+            #label { position: absolute; left: 0; top: 0; width: 95%; height: auto; border: 2px dashed #6c757d !important; box-shadow: none; margin: 10px; padding: 10px; background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            #label p { margin: 3px 0; font-size: 10pt;}
+            #label h3 { font-size: 12pt; margin: 5px 0;}
+            #label span { font-size: 10pt; }
+            #qrcode-tracking img { width: 100px !important; height: 100px !important; }
+            button, .header, .tab-bar, .tab-content:not(#tab-book), #booking-form, #result, #action-buttons, .footer, #manage-users-area, #all-deliveries-table { display: none !important; }
+            #tab-book, .container, #result-area, #label { display: block !important; }
         }
 
-        #all-deliveries-table input[type="checkbox"] {
-            transform: scale(1.5);
-            /* Increase size by 50% */
-            margin: 0 5px 0 3px;
-            /* Adjust margin if needed */
-            cursor: pointer;
-        }
-
-        #select-all-checkbox {
-            /* Apply to header checkbox too */
-            transform: scale(1.5);
-            cursor: pointer;
-        }
+        /* Checkbox Size */
+        #all-deliveries-table input[type="checkbox"] { transform: scale(1.5); margin: 0 5px 0 3px; cursor: pointer; }
+        #select-all-checkbox { transform: scale(1.5); cursor: pointer; }
     </style>
 </head>
-
 <body>
 
     <div class="header">
@@ -431,15 +117,12 @@
             </div>
             <div class="card" id="result-area">
                 <h2>Booking Status</h2>
-                <div id="result">
-                    <p>Please fill booking details...</p>
-                </div>
+                <div id="result"><p>Please fill booking details...</p></div>
                 <div id="action-buttons" style="display:none; margin-bottom: 15px;">
                     <button id="print-btn" class="btn-secondary">🖨️ Print Label</button>
                     <button id="share-btn" class="btn-secondary">✉️ Share with Customer</button>
                 </div>
-                <div id="label">
-                </div>
+                <div id="label"></div>
             </div>
         </div>
     </div>
@@ -448,8 +131,7 @@
         <div class="card" style="min-width: 95%; overflow-x: auto;">
             <h2>All Bookings</h2>
             <button id="refresh-deliveries-btn" class="btn-secondary">Refresh List</button>
-            <div id="bulk-actions"
-                style="margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            <div id="bulk-actions" style="margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
                 <strong>With Selected:</strong>
                 <button id="bulk-reprint-btn" class="btn-secondary btn-sm">Reprint Labels</button>
                 <button id="bulk-cancel-btn" class="btn-warning btn-sm">Cancel Deliveries</button>
@@ -503,28 +185,21 @@
             <form id="business-settings-form">
                 <h3>Business Information</h3>
                 <label for="business-name">Business Name:</label>
-                <input type="text" id="business-name" value="Sahyog Medical" required>
-
+                <input type="text" id="business-name" required>
                 <label for="business-address">Business Address:</label>
-                <input type="text" id="business-address" value="456 Industrial Blvd, Los Angeles, 90001, USA" required>
-
+                <input type="text" id="business-address" required>
                 <label for="business-phone">Business Phone:</label>
-                <input type="text" id="business-phone" value="+1 (555) 123-4567" required>
-
+                <input type="text" id="business-phone" required>
                 <h3>Logo Management</h3>
                 <label for="business-logo-url">Logo Image URL:</label>
                 <input type="text" id="business-logo-url" placeholder="e.g., https://example.com/logo.png">
                 <p>Current Logo Preview:</p>
-                <img id="logo-preview" src="" alt="Business Logo"
-                    style="max-width: 150px; max-height: 75px; border: 1px solid #ddd; padding: 5px; margin-bottom: 15px; background: white; display: none;">
-
+                <img id="logo-preview" src="" alt="Business Logo" style="max-width: 150px; max-height: 75px; border: 1px solid #ddd; padding: 5px; margin-bottom: 15px; background: white; display: none;">
                 <h3>Payment Management (UPI)</h3>
                 <label for="upi-id">UPI ID (e.g., yourname@bank):</label>
                 <input type="text" id="upi-id" placeholder="Enter UPI ID for payments">
-
                 <label for="upi-name">UPI Beneficiary Name:</label>
                 <input type="text" id="upi-name" placeholder="Name associated with UPI ID">
-
                 <button type="submit" class="btn-primary" style="margin-top: 20px;">Save Settings</button>
             </form>
             <div id="settings-result" class="message" style="margin-top: 15px;"></div>
@@ -554,10 +229,9 @@
                 <input type="text" id="edit-user-password" placeholder="Enter new password only if changing">
                 <button type="submit" class="btn-primary" style="margin-top: 15px;">Save Changes</button>
             </form>
-            <div id="edit-user-result" class="message" style="margin-top: 15px;"></div>
+             <div id="edit-user-result" class="message" style="margin-top: 15px;"></div>
         </div>
     </div>
-
     <div id="add-user-modal" class="modal">
         <div class="modal-content">
             <span class="close-button" onclick="closeModal('add-user-modal')">&times;</span>
@@ -569,7 +243,7 @@
                 <input type="email" id="add-user-email" required>
                 <label for="add-user-phone">Phone:</label>
                 <input type="text" id="add-user-phone">
-                <label for="add-user-password">Password:</label>
+                 <label for="add-user-password">Password:</label>
                 <input type="text" id="add-user-password" required>
                 <label for="add-user-role">Role:</label>
                 <select id="add-user-role" required>
@@ -579,15 +253,15 @@
                 </select>
                 <button type="submit" class="btn-primary" style="margin-top: 15px;">Create User</button>
             </form>
-            <div id="add-user-result" class="message" style="margin-top: 15px;"></div>
+             <div id="add-user-result" class="message" style="margin-top: 15px;"></div>
         </div>
     </div>
 
     <div class="footer">
         Copyright © <span id="copyright-year"></span> Sahyog Medical. All Rights Reserved.
     </div>
- 
-<script>
+
+    <script>
         // --- 1. Global Variables & Constants ---
         const token = localStorage.getItem('authToken');
         const role = localStorage.getItem('userRole');
@@ -607,7 +281,6 @@
             if (currentTab) currentTab.style.display = "block";
             // Check if event exists before accessing currentTarget (for calls from reprint)
             if (event && event.currentTarget) event.currentTarget.className += " active";
-            
             // Refresh data when tabs are opened
             if (tabName === 'tab-deliveries') loadAllDeliveries();
             if (tabName === 'tab-manage') loadAllUsers();
@@ -675,12 +348,12 @@
         function generateLabelPreview(name, address, trackingId, paymentMethod, phone) {
             const labelDiv = document.getElementById('label');
             if (!labelDiv) { console.error("#label preview div not found!"); return false; }
-            const qrPlaceholderId = 'qrcode-tracking-preview'; // Unique ID for preview
+            const qrPlaceholderId = 'qrcode-tracking-preview';
             labelDiv.innerHTML = generateSingleLabelHtml(name, address, trackingId, paymentMethod, phone, qrPlaceholderId);
             labelDiv.style.display = 'block';
             const qrElement = labelDiv.querySelector(`#${qrPlaceholderId}`);
             if (qrElement && trackingId) {
-                qrElement.innerHTML = ''; // Clear previous
+                qrElement.innerHTML = '';
                 try { new QRCode(qrElement, { text: trackingId, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H }); return true; }
                 catch (qrError) { console.error("QR Error:", qrError); qrElement.innerHTML = '<p style="color:red; font-size: small;">QR Error</p>'; }
             } else { console.error("QR Placeholder/TrackingID missing for preview."); }
@@ -710,11 +383,20 @@
             } else { console.error("#share-btn missing!"); }
             if (printBtn) {
                  printBtn.onclick = () => {
+                     // Find the delivery data using trackingId from closure
+                     // We find it in allDeliveriesData which should be populated by the booking's loadAllDeliveries()
                      const deliveryData = allDeliveriesData.find(d => d.trackingId === trackingId);
                      if (!deliveryData) {
-                         console.warn("Using passed data for print.");
-                         const currentFormData = { name: document.getElementById('name').value, address: document.getElementById('address').value, paymentMethod: document.getElementById('paymentMethod').value };
-                         printSingleLabel(currentFormData.name, currentFormData.address, trackingId, currentFormData.paymentMethod, phone); return;
+                         // Fallback using data passed to setupActionButtons if not found in global list
+                         console.warn("Could not find delivery in global data, using passed data for print.");
+                         // It's better to pass all required data explicitly if possible
+                         // Re-read from form as last resort (might be cleared)
+                         const name = document.getElementById('name').value;
+                         const address = document.getElementById('address').value;
+                         const paymentMethod = document.getElementById('paymentMethod').value;
+                         // Phone was passed directly, use it
+                         printSingleLabel(name, address, trackingId, paymentMethod, phone);
+                         return;
                      }
                      printSingleLabel(deliveryData.customerName, deliveryData.customerAddress, deliveryData.trackingId, deliveryData.paymentMethod, deliveryData.customerPhone);
                  };
@@ -731,40 +413,107 @@
             printWindow.document.close();
         }
 
-        // Internal print function for bulk reprint compatibility
+        // Internal print function for bulk reprint compatibility (prints current page label preview)
         function printLabelInternal() {
-            console.log("Print label button clicked (Internal handler - likely for reprint action)");
+            console.log("Print label button clicked (Internal handler)");
             const label = document.getElementById('label');
-            if (!label || label.style.display === 'none') { alert("Generate or select a label first."); return; }
+            if (!label || label.style.display === 'none') {
+                 alert("Generate label first.");
+                 console.log("Print aborted: Label not visible or not found");
+                 return;
+            }
             window.print(); // Uses @media print CSS
         }
 
         // --- 11. Business Settings Logic ---
         async function loadBusinessSettings() { // Loads when tab is opened
-            const resultDiv=document.getElementById('settings-result'),logoPreview=document.getElementById('logo-preview'); if(!resultDiv||!logoPreview)return;
-            resultDiv.textContent='Loading...';resDiv.className='message';
-            try{const r=await fetch('/admin/settings',{headers});if(r.status===401){window.location.href='/login';return}if(!r.ok)throw new Error(`HTTP ${r.status}`); const s=await r.json(); businessSettings=s;
-            const nameEl=document.getElementById('business-name'),addrEl=document.getElementById('business-address'),phoneEl=document.getElementById('business-phone'),logoUrlEl=document.getElementById('business-logo-url'),upiIdEl=document.getElementById('upi-id'),upiNameEl=document.getElementById('upi-name');
-            if(nameEl)nameEl.value=s.businessName||''; if(addrEl)addrEl.value=s.businessAddress||''; if(phoneEl)phoneEl.value=s.businessPhone||''; if(logoUrlEl)logoUrlEl.value=s.logoUrl||''; if(upiIdEl)upiIdEl.value=s.upiId||''; if(upiNameEl)upiNameEl.value=s.upiName||'';
-            if(s.logoUrl){logoPreview.src=s.logoUrl;logoPreview.style.display='block'}else{logoPreview.style.display='none'} resultDiv.textContent='';
-            }catch(e){console.error("Load settings error:",e);resDiv.textContent=`Error: ${e.message}`;resDiv.className='message error'}
+            const resultDiv=document.getElementById('settings-result');
+            const logoPreview=document.getElementById('logo-preview');
+            if(!resultDiv || !logoPreview) { console.error("Settings elements missing!"); return; }
+            resultDiv.textContent='Loading settings...'; resultDiv.className='message';
+            try {
+                const r = await fetch('/admin/settings',{headers});
+                if (r.status===401) { window.location.href='/login'; return; }
+                if (!r.ok) throw new Error(`HTTP error ${r.status}`);
+                const s = await r.json();
+                businessSettings = s;
+                console.log("Loaded Settings:", s);
+
+                const nameEl=document.getElementById('business-name');
+                const addrEl=document.getElementById('business-address');
+                const phoneEl=document.getElementById('business-phone');
+                const logoUrlEl=document.getElementById('business-logo-url');
+                const upiIdEl=document.getElementById('upi-id');
+                const upiNameEl=document.getElementById('upi-name');
+
+                if(nameEl) nameEl.value=s.businessName || '';
+                if(addrEl) addrEl.value=s.businessAddress || '';
+                if(phoneEl) phoneEl.value=s.businessPhone || '';
+                if(logoUrlEl) logoUrlEl.value=s.logoUrl || '';
+                if(upiIdEl) upiIdEl.value=s.upiId || '';
+                if(upiNameEl) upiNameEl.value=s.upiName || '';
+
+                if(s.logoUrl) { logoPreview.src=s.logoUrl; logoPreview.style.display='block'; }
+                else { logoPreview.style.display='none'; }
+                resultDiv.textContent='';
+            } catch(e) {
+                console.error("Load settings error:",e);
+                resultDiv.textContent=`Error loading settings: ${e.message}`; resultDiv.className='message error';
+            }
         }
         async function loadBusinessSettingsOnLoad() { // Loads once on page load
              try {
                 const response = await fetch('/admin/settings', { headers });
-                if (response.ok) { businessSettings = await response.json(); console.log("Initial settings loaded:", businessSettings); }
-                else { console.error("Failed initial settings load"); }
-            } catch (err) { console.error("Initial settings load error:", err); }
+                if (response.ok) {
+                    businessSettings = await response.json();
+                    console.log("Initial settings loaded:", businessSettings);
+                } else {
+                     console.error("Failed to load initial business settings. Status:", response.status);
+                }
+            } catch (err) {
+                console.error("Network error loading initial business settings:", err);
+            }
         }
         async function handleBusinessSettingsSubmit(e) {
-            e.preventDefault(); const btn=e.target.querySelector('button[type="submit"]'),resDiv=document.getElementById('settings-result'),logoPre=document.getElementById('logo-preview'); if(!btn||!resDiv||!logoPre)return;
-            btn.disabled=true;btn.textContent='Saving...';resDiv.textContent='';resDiv.className='message';
-            const data={businessName:e.target.elements['business-name'].value,businessAddress:e.target.elements['business-address'].value,businessPhone:e.target.elements['business-phone'].value,logoUrl:e.target.elements['business-logo-url'].value,upiId:e.target.elements['upi-id'].value,upiName:e.target.elements['upi-name'].value};
-            try{const r=await fetch('/admin/settings',{method:'PUT',headers,body:JSON.stringify(data)}); const d=await r.json();
-            if(r.ok){resDiv.textContent=d.message||'Saved!';resDiv.className='message success';businessSettings=d.settings||data; if(businessSettings.logoUrl){logoPre.src=businessSettings.logoUrl;logoPre.style.display='block'}else{logoPre.style.display='none'}}
-            else{resDiv.textContent=`Error: ${d.message||'Save failed.'}`;resDiv.className='message error'}
-            }catch(e){console.error("Save settings error:",e);resDiv.textContent=`Server error: ${e.message}`;resDiv.className='message error'}
-            finally{btn.disabled=false;btn.textContent='Save Settings';setTimeout(()=>{if(resDiv)resDiv.textContent=''},3000)}
+            e.preventDefault();
+            const form = e.target;
+            const btn = form.querySelector('button[type="submit"]');
+            const resDiv = document.getElementById('settings-result');
+            const logoPre = document.getElementById('logo-preview');
+            if(!btn || !resDiv || !logoPre) return;
+
+            btn.disabled=true; btn.textContent='Saving...';
+            resDiv.textContent=''; resDiv.className='message';
+            const data = {
+                businessName: form.elements['business-name'].value,
+                businessAddress: form.elements['business-address'].value,
+                businessPhone: form.elements['business-phone'].value,
+                logoUrl: form.elements['business-logo-url'].value,
+                upiId: form.elements['upi-id'].value,
+                upiName: form.elements['upi-name'].value
+            };
+            console.log("Saving settings:", data);
+            try {
+                const r = await fetch('/admin/settings',{method:'PUT',headers,body:JSON.stringify(data)});
+                const d = await r.json();
+                if (r.ok) {
+                    resDiv.textContent = d.message || 'Settings saved successfully!';
+                    resDiv.className = 'message success';
+                    businessSettings = d.settings || data; // Update global settings
+                    console.log("Updated settings:", businessSettings);
+                    if (businessSettings.logoUrl) { logoPre.src=businessSettings.logoUrl; logoPre.style.display='block'; }
+                    else { logoPre.style.display='none'; }
+                } else {
+                    resDiv.textContent=`Error: ${d.message || 'Failed to save settings.'}`;
+                    resDiv.className='message error';
+                }
+            } catch(e) {
+                console.error("Save settings error:", e);
+                resDiv.textContent=`Server error: ${e.message}`; resDiv.className='message error';
+            } finally {
+                btn.disabled = false; btn.textContent = 'Save Settings';
+                setTimeout(() => { if(resDiv) resDiv.textContent = ''; }, 3000);
+            }
         }
 
         // --- 4. Load All Deliveries (Definition) ---
@@ -880,9 +629,7 @@
             const ids=getSelectedDeliveryIds(); if(ids.length===0){alert("Select deliveries.");return} if(!confirm(`DELETE ${ids.length} records permanently?`))return; console.log("Deleting:", ids);
              try{const r=await fetch('/admin/deliveries/bulk-delete',{method:'POST',headers,body:JSON.stringify({deliveryIds:ids})}); const d=await r.json(); if(!r.ok)throw new Error(d.message||'Bulk delete failed'); alert(`Deleted ${d.deletedCount||0}.`); loadAllDeliveries(); const sa=document.getElementById('select-all-checkbox');if(sa)sa.checked=false;updateSelectionCount();}catch(e){console.error("Bulk delete:",e);alert(`Error: ${e.message}`)}
         }
-
     </script>
-
     </body>
-
-    </html>
+</html>
+            
