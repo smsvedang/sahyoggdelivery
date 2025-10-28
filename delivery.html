@@ -133,7 +133,7 @@
         Copyright © <span id="copyright-year"></span> Sahyog Medical. All Rights Reserved.
     </div>
 
-    <script>
+   <script>
         // --- 1. Global Variables ---
         const token = localStorage.getItem('authToken');
         const role = localStorage.getItem('userRole');
@@ -143,6 +143,10 @@
         let currentPage = 1;
         let totalDeliveries = 0;
         let isLoading = false; // "Show More" ko double-click se rokne ke liye
+        
+        // --- (YAHI THI Galti) YEH LINE MISSING THI ---
+        let currentDeliveries = []; 
+        // ---------------------------------------------
 
         // --- DOM Elements ---
         const pendingList = document.getElementById('pending-list');
@@ -203,8 +207,10 @@
                 if (pendingList) pendingList.innerHTML = '<li>Loading...</li>';
             }
             
-            showMoreBtn.disabled = true;
-            showMoreBtn.textContent = 'Loading...';
+            if(showMoreBtn) {
+                showMoreBtn.disabled = true;
+                showMoreBtn.textContent = 'Loading...';
+            }
 
             try {
                 const response = await fetch(`/delivery/my-deliveries?page=${currentPage}`, { headers });
@@ -215,23 +221,20 @@
                 const deliveriesArray = data.deliveries;
                 totalDeliveries = data.totalDeliveries;
 
-                if (isRefresh) pendingList.innerHTML = ''; // Loading hatayein
+                if (isRefresh && pendingList) pendingList.innerHTML = ''; // Loading hatayein
 
                 if (deliveriesArray.length === 0 && isRefresh) {
-                    pendingList.innerHTML = '<li>No pending deliveries assigned to you.</li>';
+                    if (pendingList) pendingList.innerHTML = '<li>No pending deliveries assigned to you.</li>';
                 }
 
                 deliveriesArray.forEach((d, index) => {
                     const li = document.createElement('li');
                     li.className = 'delivery-item';
                     
-                    // Status ke hisaab se border color
                     if(d.currentStatus === 'Picked Up') li.style.borderLeftColor = '#ffc107';
                     if(d.currentStatus === 'Out for Delivery') li.style.borderLeftColor = '#17a2b8';
 
-                    // Serial No.
                     const serialNumber = (currentPage - 1) * 5 + index + 1;
-
                     let paymentInfo = `<strong>Payment:</strong> ${d.paymentMethod}`;
                     let paymentButton = '';
                     if (d.paymentMethod === 'COD') {
@@ -257,26 +260,29 @@
                             ${paymentButton}
                         </div>
                     `;
-                    pendingList.appendChild(li);
+                    if (pendingList) pendingList.appendChild(li);
                 });
 
-                // Pagination status update
-                const loadedCount = pendingList.children.length;
-                paginationInfo.textContent = `Showing ${loadedCount} of ${totalDeliveries} deliveries.`;
+                // (Ab yeh line kaam karegi)
+                currentDeliveries = (isRefresh) ? deliveriesArray : [...currentDeliveries, ...deliveriesArray];
 
-                // Show/Hide "Show More" button
+                const loadedCount = currentDeliveries.length;
+                if (paginationInfo) paginationInfo.textContent = `Showing ${loadedCount} of ${totalDeliveries} deliveries.`;
+
                 if (loadedCount < totalDeliveries && data.currentPage < data.totalPages) {
-                    showMoreBtn.style.display = 'block';
-                    showMoreBtn.disabled = false;
-                    showMoreBtn.textContent = 'Show More (5)';
-                    currentPage++; // Agle page ke liye prepare karein
+                    if (showMoreBtn) {
+                        showMoreBtn.style.display = 'block';
+                        showMoreBtn.disabled = false;
+                        showMoreBtn.textContent = 'Show More (5)';
+                    }
+                    currentPage++;
                 } else {
-                    showMoreBtn.style.display = 'none';
+                    if (showMoreBtn) showMoreBtn.style.display = 'none';
                 }
 
             } catch (err) {
                 console.error("Error loading deliveries:", err);
-                pendingList.innerHTML = `<li>Error loading deliveries: ${err.message}</li>`;
+                if (pendingList) pendingList.innerHTML = `<li>Error loading deliveries: ${err.message}</li>`;
             } finally {
                 isLoading = false;
             }
@@ -291,30 +297,33 @@
        
         const qrCodeSuccessCallback = async (decodedText, decodedResult) => {
             try {
-                await html5QrCode.stop(); // Scanner rokein
+                await html5QrCode.stop();
             } catch (err) {
-                console.warn("Scanner stop failed, maybe already stopped.", err);
+                console.warn("Scanner stop failed.", err);
             }
             
-            scanResultDiv.style.display = 'block';
-            scanResultDiv.className = 'message';
-            scanResultDiv.innerHTML = `Scanned: ${decodedText}. Processing...`;
+            if (scanResultDiv) {
+                scanResultDiv.style.display = 'block';
+                scanResultDiv.className = 'message';
+                scanResultDiv.innerHTML = `Scanned: ${decodedText}. Processing...`;
+            }
 
+            // (Ab yeh line kaam karegi)
             const delivery = currentDeliveries.find(d => d.trackingId === decodedText);
 
             if (delivery && delivery.currentStatus === 'Out for Delivery') {
-                // Agar 'Out for Delivery' hai, toh yeh 'Complete' ke liye scan hai
-                scanResultDiv.innerHTML = `Scanned ${decodedText}. Please enter Customer OTP below to complete.`;
-                scanResultDiv.className = 'message success';
-                document.getElementById('manual-entry-card').style.display = 'block'; // Manual section kholein
-                document.getElementById('manual-tracking-id').value = decodedText; // ID auto-fill karein
-                checkIfCod(decodedText); // COD options check karein
-                document.getElementById('complete-otp-code').focus(); // OTP field par focus karein
+                if (scanResultDiv) {
+                    scanResultDiv.innerHTML = `Scanned ${decodedText}. Please enter Customer OTP below to complete.`;
+                    scanResultDiv.className = 'message success';
+                }
+                document.getElementById('manual-entry-card').style.display = 'block';
+                document.getElementById('manual-tracking-id').value = decodedText;
+                checkIfCod(decodedText);
+                document.getElementById('complete-otp-code').focus();
             } else {
-                // Varna, yeh status update (Picked Up / Out for Delivery) ke liye scan hai
                  updateDeliveryStatus(decodedText, scanResultDiv);
             }
-             setTimeout(startScanner, 4000); // 4 sec baad scanner phir se shuru karein
+             setTimeout(startScanner, 4000);
         };
         
         async function updateDeliveryStatus(trackingId, resultDivElement) {
@@ -328,7 +337,7 @@
                 if (response.ok) {
                     resultDivElement.className = 'message success';
                     resultDivElement.innerHTML = `Success! ${data.trackingId} is now ${data.status}.`;
-                    loadAssignedDeliveries(true); // Poori list refresh karein
+                    loadAssignedDeliveries(true); // Refresh list
                 } else {
                     resultDivElement.className = 'message error';
                     resultDivElement.innerHTML = `Error: ${data.message || `Server error ${response.status}`}`;
@@ -358,7 +367,7 @@
         }
         
         async function handleCompleteDelivery() {
-             const trackingId = document.getElementById('manual-tracking-id').value; // Use the same tracking ID
+             const trackingId = document.getElementById('manual-tracking-id').value;
              const otp = document.getElementById('complete-otp-code').value;
              completeResultDiv.style.display = 'block';
              completeResultDiv.className = 'message';
@@ -390,7 +399,7 @@
                  if (response.ok) {
                     completeResultDiv.className = 'message success';
                     completeResultDiv.innerHTML = `Success! ${data.trackingId} is ${data.status}.`;
-                    loadAssignedDeliveries(true); // List refresh karein
+                    loadAssignedDeliveries(true); // Refresh list
                     document.getElementById('manual-tracking-id').value = '';
                     document.getElementById('complete-otp-code').value = '';
                     codOptionsDiv.style.display = 'none';
@@ -412,13 +421,13 @@
             codOptions.style.display = 'none';
             if (!trackingId) return;
             
+            // (Ab yeh line kaam karegi)
             const delivery = currentDeliveries.find(d => d.trackingId === trackingId);
             if (delivery) {
                 if (delivery.paymentMethod === 'COD' && delivery.currentStatus === 'Out for Delivery') {
                      codOptions.style.display = 'block';
                 }
             } else {
-                // Fallback agar list mein nahi hai (optional, but good)
                 try {
                     const response = await fetch(`/track/${trackingId}`);
                     const data = await response.json();
@@ -435,7 +444,6 @@
             const qrAmountEl = document.getElementById('qr-amount');
             const qrCodeEl = document.getElementById('payment-qrcode');
             
-            // --- Naya Dynamic UPI Logic ---
             const upiID = businessSettings.upiId;
             const merchantName = (businessSettings.upiName || 'Sahyog Medical').replace(/ /g, '%20');
             
@@ -443,7 +451,6 @@
                 alert('UPI ID not set. Please contact admin.');
                 return;
             }
-            // -----------------------------
             
             const validAmount = parseFloat(amount);
             if (isNaN(validAmount) || validAmount <= 0) {
