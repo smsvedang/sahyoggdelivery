@@ -545,13 +545,59 @@
         }
 
         // --- 8. Label Generation & Print ---
-        function generateLabel(name, address, trackingId, paymentMethod, phone) {
-            const labelDiv = document.getElementById('label'); if (!labelDiv) { console.error("#label missing!"); return false; }
-            const logoHtml = businessSettings.logoUrl ? `<img src="${businessSettings.logoUrl}" alt="${businessSettings.businessName||'Logo'}" style="max-height:40px;max-width:120px;margin-bottom:5px;">` : `<strong>${businessSettings.businessName||'Sahyog'}</strong>`;
-            labelDiv.innerHTML = `<style>.label-grid-container{border:1.5px solid black;display:grid;grid-template-columns:60% 40%;grid-template-rows:auto auto auto 1fr;width:100%;font-family:Arial,sans-serif;font-size:10pt;background:white}.label-grid-container div{padding:6px 8px;border-bottom:1px solid black;border-right:1px solid black;box-sizing:border-box;word-wrap:break-word}.label-grid-container div:nth-child(2n){border-right:none}.label-grid-container div:nth-last-child(-n+2){border-bottom:none}.grid-header{font-weight:bold;background-color:#f0f0f0}.grid-ship-to{grid-column:1/2;grid-row:2/3}.grid-from{grid-column:2/3;grid-row:2/3}.grid-order-id{grid-column:1/2;grid-row:3/4}.grid-remarks{grid-column:2/3;grid-row:3/4}.grid-qr-code{grid-column:1/3;grid-row:4/5;text-align:center;padding-top:15px;padding-bottom:5px;border-top:1.5px solid black}.grid-qr-code #qrcode-tracking img{display:block;margin:0 auto 5px auto}.grid-qr-code small{font-size:8pt;font-weight:bold;letter-spacing:1px;display:block}.label-grid-container p{margin:2px 0;padding:0}</style><div class="label-grid-container"><div class="grid-header">SHIP TO:</div><div class="grid-header">FROM:</div><div class="grid-ship-to"><p><strong>${name||'N/A'}</strong></p><p>${address||'N/A'}</p><p>Ph: ${phone||'N/A'}</p></div><div class="grid-from">${logoHtml}<p>${businessSettings.businessAddress||'N/A'}</p><p>Ph: ${businessSettings.businessPhone||'N/A'}</p></div><div class="grid-order-id">ORDER ID: <strong>${trackingId||'N/A'}</strong></div><div class="grid-remarks">REMARKS: <strong>${paymentMethod||'Prepaid'}</strong></div><div class="grid-qr-code"><div id="qrcode-tracking"></div><small>TRACK${trackingId||'N/A'}</small></div></div>`;
-            labelDiv.style.display = 'block';
-            const qrEl = labelDiv.querySelector('#qrcode-tracking');
-            if (qrEl && trackingId) { qrEl.innerHTML=''; try { new QRCode(qrEl, { text: trackingId, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H }); return true; } catch (e) { console.error("QR Error:", e); qrEl.innerHTML='QR Err'; } } else { console.error("QR Placeholder/ID missing."); } return false;
+       // --- 8. Label Generation & Print ---
+        // Generates the HTML string for ONE label (Portrait Optimized)
+        function generateSingleLabelHtml(name, address, trackingId, paymentMethod, phone, qrPlaceholderId) {
+            const logoHtml = businessSettings.logoUrl
+                ? `<img src="${businessSettings.logoUrl}" alt="${businessSettings.businessName || 'Logo'}" style="max-height: 40px; max-width: 120px; margin-bottom: 5px;">`
+                : `<strong>${businessSettings.businessName || 'Sahyog Medical'}</strong>`;
+
+            // Updated CSS for Portrait Layout
+            return `
+                <div class="label-grid-container" style="border: 1.5px solid black; display: grid; grid-template-columns: 60% 40%; grid-template-rows: auto auto auto 1fr; width: 100mm; /* Fixed width for portrait */ min-height: 140mm; /* Minimum height */ height: auto; font-family: Arial, sans-serif; font-size: 10pt; background: white; margin-bottom: 5mm; page-break-inside: avoid;">
+                    <style scoped> /* Scoped styles for print window */
+                        /* Reset box-sizing for print */
+                        *, *::before, *::after { box-sizing: border-box; }
+
+                        .label-grid-container { /* Ensure styles apply */
+                            border: 1.5px solid black !important;
+                            display: grid !important;
+                            grid-template-columns: 60% 40% !important;
+                            grid-template-rows: auto auto auto 1fr !important; /* Rows */
+                            width: 100mm !important; /* Fixed width */
+                            min-height: 140mm !important; /* Minimum height */
+                            height: auto !important;
+                            font-family: Arial, sans-serif !important;
+                            font-size: 10pt !important;
+                            background: white !important;
+                            margin: 0 !important; /* Remove margin for print element itself */
+                            padding: 0 !important; /* Remove padding */
+                            page-break-inside: avoid !important;
+                        }
+                        .label-grid-container div { padding: 4px 6px !important; border-bottom: 1px solid black; border-right: 1px solid black; box-sizing: border-box; word-wrap: break-word; overflow: hidden; }
+                        .label-grid-container div:nth-child(2n) { border-right: none; }
+                        /* Ensure last row cells don't have bottom border */
+                        .grid-qr-code { border-bottom: none !important; }
+
+                        .grid-header { font-weight: bold; background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        .grid-ship-to { grid-column: 1 / 2; grid-row: 2 / 3; }
+                        .grid-from { grid-column: 2 / 3; grid-row: 2 / 3; }
+                        .grid-order-id { grid-column: 1 / 2; grid-row: 3 / 4; }
+                        .grid-remarks { grid-column: 2 / 3; grid-row: 3 / 4; }
+                        .grid-qr-code { grid-column: 1 / 3; grid-row: 4 / 5; text-align: center; padding-top: 10px !important; padding-bottom: 5px !important; border-top: 1.5px solid black; }
+                        .grid-qr-code .qr-code-img img { display: block; margin: 0 auto 5px auto; width: 90px !important; height: 90px !important; }
+                        .grid-qr-code small { font-size: 8pt; font-weight: bold; letter-spacing: 1px; display: block; }
+                        .label-grid-container p { margin: 1px 0; padding: 0; font-size: 9pt; }
+                    </style>
+                    {/* Grid content remains the same */}
+                    <div class="grid-header">SHIP TO:</div> <div class="grid-header">FROM:</div>
+                    <div class="grid-ship-to"><p><strong>${name||'N/A'}</strong></p><p>${address||'N/A'}</p><p>Ph: ${phone||'N/A'}</p></div>
+                    <div class="grid-from">${logoHtml}<p>${businessSettings.businessAddress||'N/A'}</p><p>Ph: ${businessSettings.businessPhone||'N/A'}</p></div>
+                    <div class="grid-order-id">ORDER ID: <strong>${trackingId||'N/A'}</strong></div>
+                    <div class="grid-remarks">REMARKS: <strong>${paymentMethod||'Prepaid'}</strong></div>
+                    <div class="grid-qr-code"><div id="${qrPlaceholderId}" class="qr-code-img"></div><small>TRACK${trackingId||'N/A'}</small></div>
+                </div>
+            `;
         }
         function setupActionButtons(trackingId, otp, phone) {
             console.log("Setting up action buttons for:", trackingId);
@@ -760,14 +806,25 @@
                 <html><head><title>Print Labels</title>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
                 <style>
-                    body { margin: 5mm; }
-                    @media print {
-                        body { margin: 0; }
-                        .label-print-instance { page-break-before: always; margin: 5mm !important; }
-                        .label-print-instance:first-child { page-break-before: avoid; margin-top: 5mm !important; }
-                        .label-grid-container { border: 1.5px solid black !important; }
-                         -webkit-print-color-adjust: exact; print-color-adjust: exact;
+                    /* Basic reset for print */
+                    body { margin: 0; padding: 0; }
+                    /* Try to force portrait and size using @page */
+                    @page {
+                        size: A4 portrait; /* Specify size and orientation */
+                        margin: 5mm; /* Minimal margin */
                     }
+                    /* Ensure the grid container itself respects print */
+                    .label-grid-container {
+                         border: 1.5px solid black !important;
+                         margin: 0 !important;
+                         width: 190mm !important; /* Explicit width close to A4 width minus margins */
+                         height: 270mm !important; /* Explicit height close to A4 height minus margins */
+                         box-sizing: border-box; /* Include border in size */
+                         page-break-inside: avoid; /* Prevent breaking inside */
+                    }
+                    /* Force color printing */
+                     -webkit-print-color-adjust: exact;
+                     print-color-adjust: exact;
                 </style>
                 </head><body>
                     ${combinedLabelsHtml}
