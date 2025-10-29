@@ -726,20 +726,19 @@
             loadBusinessSettingsOnLoad(); // Load settings early
             loadAllDeliveries(); // Load deliveries last
         });
-        // --- (NEW) 14. Google Sheet Sync Handler ---
+        // --- (NEW) 14. Google Sheet Sync (Code.gs Method) ---
         async function handleGoogleSheetSync() {
+            // SCRIPT URL YAHAN PASTE KARNA
+            const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyO3QFb5IegppmJhpF3MHezE6qdE1evpYeQwsgQhj8PaGATCZFcFC-XY1WCwsvhjIJ7MQ/exec"; 
+
             const syncBtn = document.getElementById('sync-google-sheet-btn');
             if (!syncBtn) return;
 
-            if (!confirm('This will replace all data in the Google Sheet with the current database. Continue?')) {
+            if (!confirm('Google Sheet के साथ Sync करें? \n(Update, Add, and Highlight Deleted)')) {
                 return;
             }
 
-            const originalText = syncBtn.textContent;
-            syncBtn.disabled = true;
-            syncBtn.textContent = 'Syncing...';
-            
-            // Chhota sa result message dikhane ke liye
+            // Status message ke liye
             let resultSpan = document.getElementById('sync-result-span');
             if (!resultSpan) {
                 resultSpan = document.createElement('span');
@@ -747,36 +746,46 @@
                 resultSpan.style.marginLeft = '10px';
                 syncBtn.after(resultSpan);
             }
+
+            const originalText = syncBtn.textContent;
+            syncBtn.disabled = true;
+            syncBtn.textContent = 'Syncing...';
             resultSpan.textContent = '';
+            resultSpan.style.color = 'black';
 
-            try {
-                const response = await fetch('/admin/sync-to-google-sheet', {
+            // Yeh 'allDeliveriesData' array wahi hai jo 'loadAllDeliveries' me load hota hai
+            if (allDeliveriesData.length === 0) {
+                alert("Pehle 'Refresh List' karein. Data nahi mila.");
+                syncBtn.disabled = false;
+                syncBtn.textContent = originalText;
+                return;
+            }
+
+            try {
+                // Hum 'allDeliveriesData' ko seedha Google Script ko bhej rahe hain
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
-                    headers
+                    mode: 'no-cors', // Apps Script me 'no-cors' use karna pad sakta hai
+                    cache: 'no-cache',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(allDeliveriesData) // Pura array bhej do
                 });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    resultSpan.textContent = 'Sync Success!';
-                    resultSpan.style.color = 'green';
-                    console.log('Sync successful:', data.message);
-                } else {
-                    throw new Error(data.message || 'Sync failed');
-                }
+                
+                // no-cors me hum response nahi padh sakte, isliye maan lenge ki success hua
+                resultSpan.textContent = 'Sync request sent!';
+                resultSpan.style.color = 'green';
+                console.log('Sync request sent successfully.');
 
             } catch (error) {
                 console.error('Error syncing to Google Sheet:', error);
-                resultSpan.textContent = `Error: ${error.message}`;
+                resultSpan.textContent = 'Error (check console)';
                 resultSpan.style.color = 'red';
             } finally {
                 syncBtn.disabled = false;
                 syncBtn.textContent = originalText;
-                // Message ko 5 second baad hata do
                 setTimeout(() => {
                     if (resultSpan) resultSpan.textContent = '';
-            }, 5000);
+                }, 5000);
             }
         }
-
     </script>
