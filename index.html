@@ -3,95 +3,215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sahyog Medical - Home Delivery Portal</title>
-   <link rel="icon" href="/favicon.png" type="image/png">
+    <title>Sahyog Medical - Home Delivery Service</title>
+     <link rel="icon" href="/favicon.png" type="image/png">
     <link rel="apple-touch-icon" href="/favicon.png">
 
     <meta name="theme-color" content="#f1c27d">
     <link rel="manifest" href="/manifest.json">
-
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        :root {
+            --primary-color: #007bff; /* Sahyog Blue */
+            --secondary-color: #6c757d; /* Muted Gray */
+            --accent-color: #28a745; /* Green for success/highlight */
+            --background-light: #f8f9fa; /* Very light background */
+            --background-dark: #e9ecef; /* Slightly darker background */
+            --text-dark: #343a40; /* Dark text */
+            --text-muted: #6c757d; /* Muted text */
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
+            --shadow-light: rgba(0,0,0,0.08);
+            --shadow-hover: rgba(0,0,0,0.15);
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f7f6;
+            font-family: 'Open Sans', sans-serif;
             margin: 0;
+            padding: 0;
+            background-color: var(--background-light);
+            color: var(--text-dark);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            padding: 60px 20px 40px; /* More vertical padding */
+            background: linear-gradient(135deg, #007bff, #0056b3); /* Blue gradient */
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-family: 'Poppins', sans-serif;
+            margin: 0 0 10px 0;
+            font-size: 3.5em; /* Larger title */
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.3em;
+            margin: 0;
+            font-weight: 400;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            flex-grow: 1;
             display: flex;
             justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
+            align-items: center; /* Vertically center cards */
+            gap: 40px; /* More space between cards */
+            padding: 50px 20px;
+            flex-wrap: wrap;
         }
-        .portal-container {
-            max-width: 800px;
-            width: 100%;
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 15px; /* Softer rounded corners */
+            box-shadow: 0 8px 20px var(--shadow-light); /* More pronounced shadow */
+            padding: 40px; /* More padding inside cards */
             text-align: center;
+            width: 300px; /* Slightly wider cards */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 220px; /* Taller cards */
+            border: 1px solid var(--border-color); /* Subtle border */
         }
-        .portal-container h1 {
-            color: #2c3e50;
-            font-size: 2.5em;
-            margin-bottom: 10px;
+
+        .card:hover {
+            transform: translateY(-8px) scale(1.02); /* More noticeable hover effect */
+            box-shadow: 0 12px 25px var(--shadow-hover);
         }
-        .portal-container p {
-            color: #555;
-            font-size: 1.1em;
-            margin-bottom: 40px;
+
+        .card i { /* Icon styling */
+            font-size: 3em;
+            color: var(--primary-color);
+            margin-bottom: 20px;
         }
-        .portal-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        .portal-card {
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            padding: 30px;
+
+        .card a {
+            font-family: 'Poppins', sans-serif;
             text-decoration: none;
-            color: #333;
-            transition: transform 0.2s, box-shadow 0.2s;
+            color: var(--primary-color);
+            font-size: 1.8em; /* Larger link text */
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: block;
+            transition: color 0.2s ease;
         }
-        .portal-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+
+        .card a:hover {
+            color: #0056b3;
         }
-        .portal-card h2 {
-            margin-top: 0;
-            color: #007bff;
+
+        .card p {
+            color: var(--text-muted);
+            font-size: 1.1em; /* Slightly larger description */
+            line-height: 1.6;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px; /* Space between link and description */
         }
-        .portal-card .description {
-            color: #666;
+
+        .footer {
+            text-align: center;
+            padding: 25px;
+            background-color: var(--card-bg);
+            color: var(--text-muted);
             font-size: 0.95em;
+            border-top: 1px solid var(--border-color);
+            margin-top: auto;
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.03); /* Subtle shadow on footer top */
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 992px) {
+            .main-content {
+                gap: 30px;
+                padding: 40px 15px;
+            }
+            .card {
+                width: 280px;
+                padding: 35px;
+            }
+            .header h1 {
+                font-size: 3em;
+            }
+            .header p {
+                font-size: 1.1em;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+                align-items: center;
+            }
+            .card {
+                width: 90%;
+                max-width: 320px;
+                min-height: 200px;
+            }
+            .header h1 {
+                font-size: 2.5em;
+            }
+            .header p {
+                font-size: 1em;
+            }
+            .header {
+                padding: 40px 20px 30px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .card {
+                padding: 30px 20px;
+                width: 100%;
+                max-width: 280px;
+            }
+            .header h1 {
+                font-size: 2em;
+            }
+            .header p {
+                font-size: 0.9em;
+            }
         }
     </style>
 </head>
 <body>
-
-    <div class="portal-container">
+    <div class="header">
         <h1>Sahyog Medical</h1>
         <p>होम डिलीवरी सर्विस पोर्टल</p>
+    </div>
 
-        <div class="portal-grid">
-            
-            <a href="/track" class="portal-card">
-                <h2>Track Shipment</h2>
-                <p class="description">अपना ट्रैकिंग ID डालें और ऑर्डर का स्टेटस पता करें।</p>
-            </a>
-
-            <a href="/admin" class="portal-card">
-                <h2>Admin Login</h2>
-                <p class="description">नए शिपमेंट बुक करें और सभी डिलीवरी मैनेज करें।</p>
-            </a>
-
-            <a href="/delivery" class="portal-card">
-                <h2>Delivery Login</h2>
-                <p class="description">अपनी असाइन की गई डिलीवरी देखें और अपडेट करें।</p>
-            </a>
-
+    <div class="main-content">
+        <div class="card">
+            <i class="fas fa-truck-fast"></i>
+            <a href="track.html">Track Shipment</a>
+            <p>अपना ट्रैकिंग ID डालें और अपने ऑर्डर का वर्तमान स्टेटस पता करें।</p>
+        </div>
+        <div class="card">
+            <i class="fas fa-sign-in-alt"></i> <a href="login.html">Login</a> <p>एडमिन, मैनेजर, या डिलीवरी बॉय के रूप में लॉग इन करें।</p>
         </div>
     </div>
-<div class="footer" style="text-align: center; margin-top: 30px; color: #888; font-size: 0.9em;">
+
+    <footer class="footer">
         Copyright © <span id="copyright-year"></span> Sahyog Medical. All Rights Reserved.
-    </div>
-     <script> document.getElementById('copyright-year').textContent = new Date().getFullYear(); </script>
+    </footer>
+
+    <script>
+        // Dynamically set the current year for the copyright notice
+        document.getElementById('copyright-year').textContent = new Date().getFullYear();
+    </script>
 </body>
 </html>
