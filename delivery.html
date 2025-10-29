@@ -187,14 +187,25 @@
 
         // --- 3. Business Settings (UPI ke liye) ---
         async function loadBusinessSettings() {
-             try {
-                const response = await fetch('/admin/settings', { headers }); // Admin route (permission pehle hi set hai)
-                if (response.ok) {
-                    businessSettings = await response.json();
-                    console.log("Business settings loaded (for UPI):", businessSettings.upiId);
-                } else { console.error("Failed to load business settings"); }
-            } catch (err) { console.error("Error loading business settings:", err); }
+    try {
+        const response = await fetch('/public/settings', { // Changed endpoint to /public/settings
+            method: 'GET',
+            headers: headers // Agar token ki zarurat hai (jaise agar auth(['delivery']) use kiya hai)
+                           // Otherwise, agar public hai toh headers ki zaroorat nahi
+        });
+        const data = await response.json();
+        if (response.ok) {
+            businessSettings = data; // Store settings globally
+            console.log('Business settings loaded:', businessSettings);
+            // Optionally update UI if needed, e.g., print label mein logo dikhane ke liye
+            // (delivery.html mein label print nahi hota, so yeh UI update admin.html ke liye zyada relevant hai)
+        } else {
+            console.error('Failed to load business settings:', data.message);
         }
+    } catch (error) {
+        console.error('Error fetching business settings:', error);
+    }
+}
 
         // --- 4. Load Deliveries (Pagination ke saath) ---
         async function loadAssignedDeliveries(isRefresh = false) {

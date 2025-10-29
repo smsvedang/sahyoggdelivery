@@ -895,6 +895,21 @@ app.get('/track/:trackingId', async (req, res) => {
 });
 // 10.2. Get VAPID Key
 app.get('/vapid-public-key', (req, res) => res.send(VAPID_PUBLIC_KEY));
+// --- (NEW) 10.3. Get Public Business Settings (Accessible by anyone or specific roles) ---
+app.get('/public/settings', async (req, res) => {
+    try {
+        // Hum yahan auth middleware use nahi kar rahe, ya aap auth(['delivery', 'manager', 'admin']) laga sakte hain
+        let settings = await BusinessSettings.findOne({}, 'businessName businessAddress businessPhone logoUrl upiId upiName'); // Only send necessary fields
+        if (!settings) {
+            // Agar settings nahi hain, toh ek default empty object bhej sakte hain ya create kar sakte hain
+            settings = await BusinessSettings.create({}); // Create if not exists
+        }
+        res.json(settings);
+    } catch (error) {
+        console.error('Error fetching public settings:', error);
+        res.status(500).json({ message: 'Error fetching public settings' });
+    }
+});
 
 // --- 11. Business Settings Management (Admin Only) ---
 // Get business settings (FIXED: Removed 'delivery' role)
