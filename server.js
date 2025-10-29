@@ -119,11 +119,10 @@ const BusinessSettings = mongoose.model('BusinessSettings', BusinessSettingsSche
 
 // --- (NEW) 4.5. Google Sheet Auto-Sync Helper Function ---
 
-// (Yeh headers ab manual sync se 100% match karte hain, WITH OTP)
+// (Yeh headers ab aapki sheet se 100% match karte hain)
 const GOOGLE_SHEET_HEADERS = [
-    'Tracking ID', 'Customer Name', 'Customer Phone', 'Customer Address',
-    'Payment Method', 'Bill Amount', 'Current Status', 'OTP', // <-- OTP YAHAN HAI
-    'Last Updated', 'Assigned By Manager', 'Assigned To Boy', 'Created At'
+    'Tracking ID', 'Customer Name', 'Status', 'Payment', 'Payment Status',
+    'Assigned Manager', 'Assigned Boy', 'OTP', 'Date'
 ];
 // Light Red color (#fbe9e7) for deleted rows
 const DELETED_ROW_COLOR = { "red": 0.98431, "green": 0.91372, "blue": 0.90588 };
@@ -166,7 +165,6 @@ async function syncSingleDeliveryToSheet(deliveryId, action = 'update') {
         const sheetData = response.data.values || [];
         let rowNumber = -1;
         
-        // Find the row number matching the trackingId
         for (let i = 0; i < sheetData.length; i++) {
             if (sheetData[i][0] === delivery.trackingId) {
                 rowNumber = i + 1; // 1-based index
@@ -174,20 +172,17 @@ async function syncSingleDeliveryToSheet(deliveryId, action = 'update') {
             }
         }
 
-        // 3. Prepare the data row (FIXED TO MATCH MANUAL SYNC + OTP)
+        // 3. Prepare the data row (FIXED - 9 Columns)
         const rowData = [
-            delivery.trackingId,
-            delivery.customerName,
-            delivery.customerPhone,
-            delivery.customerAddress,
-            delivery.paymentMethod,
-            delivery.billAmount,
-            delivery.currentStatus,
-            delivery.otp || 'N/A', // <-- OTP YAHAN ADD HO GAYA
-            new Date(delivery.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+            delivery.trackingId || 'N/A',
+            delivery.customerName || 'N/A',
+            delivery.currentStatus || 'N/A',
+            (delivery.paymentMethod === 'COD' ? `₹${delivery.billAmount}` : 'Prepaid'),
+            (delivery.paymentMethod === 'COD' ? (delivery.codPaymentStatus || 'Pending') : 'N/A'),
             delivery.assignedByManager ? delivery.assignedByManager.name : 'N/A',
             delivery.assignedTo ? delivery.assignedTo.name : 'N/A',
-            new Date(delivery.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+            delivery.otp || 'N/A',
+            new Date(delivery.createdAt).toLocaleDateString('en-IN') // Simple Date
         ];
 
 
@@ -223,6 +218,15 @@ async function syncSingleDeliveryToSheet(deliveryId, action = 'update') {
                 range: `Sheet1!A${rowNumber}`,
                 valueInputOption: 'USER_ENTERED',
                 resource: { values: [rowData] }
+            });
+            // Clear background color just in case it was red
+             await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: GOOGLE_SHEET_ID,
+                resource: { requests: [{ "repeatCell": {
+                    "range": { "sheetId": 0, "startRowIndex": rowNumber - 1, "endRowIndex": rowNumber, "startColumnIndex": 0, "endColumnIndex": GOOGLE_SHEET_HEADERS.length },
+                    "cell": { "userEnteredFormat": { "backgroundColor": null } },
+                    "fields": "userEnteredFormat.backgroundColor"
+                }}] }
             });
         } else if (action === 'create') {
             // --- ACTION: CREATE (Append Row) ---
@@ -576,7 +580,7 @@ app.post('/admin/sync-to-google-sheet', auth(['admin']), async (req, res) => {
     }
 
     try {
-        // --- Smart Sync Logic (Updated with OTP) ---
+        // --- Smart Sync Logic (FIXED - 9 Columns) ---
         // 1. Get all data from DB
         const allDeliveries = await Delivery.find()
             .populate('assignedByManager', 'name')
@@ -586,12 +590,11 @@ app.post('/admin/sync-to-google-sheet', auth(['admin']), async (req, res) => {
         // 2. Get all data from Sheet
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: GOOGLE_SHEET_ID,
-            range: 'Sheet1!A:L', // A se L (12 columns)
+            range: 'Sheet1!A:I', // A se I (9 columns)
         });
         const sheetData = response.data.values || [];
         
         const sheetMap = new Map();
-        // (Header ko chhodkar, index 0)
         if (sheetData.length > 1) { 
             for (let i = 1; i < sheetData.length; i++) {
                 const trackingId = sheetData[i][0];
@@ -601,16 +604,14 @@ app.post('/admin/sync-to-google-sheet', auth(['admin']), async (req, res) => {
             }
         }
         
-        // Headers ko update karo
+        // Headers (FIXED - 9 Columns)
         const headerRow = [
-            'Tracking ID', 'Customer Name', 'Customer Phone', 'Customer Address',
-            'Payment Method', 'Bill Amount', 'Current Status', 'OTP', // <-- OTP YAHAN HAI
-            'Last Updated', 'Assigned By Manager', 'Assigned To Boy', 'Created At'
+            'Tracking ID', 'Customer Name', 'Status', 'Payment', 'Payment Status',
+            'Assigned Manager', 'Assigned Boy', 'OTP', 'Date'
         ];
         
         // Check karo ki sheet khaali hai ya header galat hain
         if (sheetData.length === 0) {
-            // Sheet bilkul khaali hai, headers daalo
             await sheets.spreadsheets.values.append({
                 spreadsheetId: GOOGLE_SHEET_ID,
                 range: 'Sheet1!A1',
@@ -628,30 +629,27 @@ app.post('/admin/sync-to-google-sheet', auth(['admin']), async (req, res) => {
             });
         }
 
-
         const dbTrackingIds = new Set();
-        const rowsToUpdate = []; // Batch update ke liye
-        const rowsToAppend = []; // Batch append ke liye
+        const rowsToUpdate = []; 
+        const rowsToAppend = []; 
+        const resetColorRequests = []; // Highlight hatane ke liye
         
         // 3. Compare DB vs Sheet
         allDeliveries.forEach(d => {
             const trackingId = d.trackingId;
             dbTrackingIds.add(trackingId);
 
-            // Data row (Updated with OTP)
+            // Data row (FIXED - 9 Columns)
             const rowData = [
-                d.trackingId,
-                d.customerName,
-                d.customerPhone,
-                d.customerAddress,
-                d.paymentMethod,
-                d.billAmount,
-                d.currentStatus,
-                d.otp || 'N/A', // <-- OTP YAHAN ADD HO GAYA
-                new Date(d.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                d.trackingId || 'N/A',
+                d.customerName || 'N/A',
+                d.currentStatus || 'N/A',
+                (d.paymentMethod === 'COD' ? `₹${d.billAmount}` : 'Prepaid'),
+                (d.paymentMethod === 'COD' ? (d.codPaymentStatus || 'Pending') : 'N/A'),
                 d.assignedByManager ? d.assignedByManager.name : 'N/A',
                 d.assignedTo ? d.assignedTo.name : 'N/A',
-                new Date(d.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+                d.otp || 'N/A',
+                new Date(d.createdAt).toLocaleDateString('en-IN')
             ];
 
             const existingEntry = sheetMap.get(trackingId);
@@ -661,6 +659,12 @@ app.post('/admin/sync-to-google-sheet', auth(['admin']), async (req, res) => {
                     range: `Sheet1!A${existingEntry.row}`,
                     values: [rowData]
                 });
+                // Un-highlight bhi karo (agar pehle deleted tha)
+                resetColorRequests.push({ "repeatCell": {
+                    "range": { "sheetId": 0, "startRowIndex": existingEntry.row - 1, "endRowIndex": existingEntry.row, "startColumnIndex": 0, "endColumnIndex": headerRow.length },
+                    "cell": { "userEnteredFormat": { "backgroundColor": null } },
+                    "fields": "userEnteredFormat.backgroundColor"
+                }});
             } else {
                 // --- Prepare for APPEND ---
                 rowsToAppend.push(rowData);
@@ -706,12 +710,15 @@ app.post('/admin/sync-to-google-sheet', auth(['admin']), async (req, res) => {
             });
             console.log(`Manual Sync: Appended ${rowsToAppend.length} new rows.`);
         }
-        if (highlightRequests.length > 0) {
+        
+        // Colors ko ek saath update karo
+        const allColorRequests = [...highlightRequests, ...resetColorRequests];
+        if (allColorRequests.length > 0) {
             await sheets.spreadsheets.batchUpdate({
                 spreadsheetId: GOOGLE_SHEET_ID,
-                resource: { requests: highlightRequests }
+                resource: { requests: allColorRequests }
             });
-            console.log(`Manual Sync: Highlighted ${highlightRequests.length} deleted rows.`);
+            console.log(`Manual Sync: Highlighted ${highlightRequests.length} rows, Reset color for ${resetColorRequests.length} rows.`);
         }
 
         res.json({ 
@@ -720,7 +727,7 @@ app.post('/admin/sync-to-google-sheet', auth(['admin']), async (req, res) => {
 
     } catch (error) {
         console.error("Error syncing to Google Sheet:", error);
-        res.status(500).json({ message: 'Error syncing to Google Sheet', error: error.message });
+    res.status(500).json({ message: 'Error syncing to Google Sheet', error: error.message });
     }
 });
 
