@@ -4,19 +4,19 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#336699",
+  "theme_color": "#f1c27d",
   "icons": [
     {
       "src": "https://i.postimg.cc/pdCBcKd3/favicon.jpg",
       "sizes": "192x192",
       "type": "image/jpeg",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "https://i.postimg.cc/pdCBcKd3/favicon.jpg",
       "sizes": "512x512",
       "type": "image/jpeg",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
