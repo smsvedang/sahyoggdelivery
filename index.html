@@ -84,6 +84,7 @@
             justify-content: space-between;
             min-height: 220px; /* Taller cards */
             border: 1px solid var(--border-color); /* Subtle border */
+            cursor: pointer; /* Add pointer cursor to indicate clickability */
         }
 
         .card:hover {
@@ -95,6 +96,7 @@
             font-size: 3em;
             color: var(--primary-color);
             margin-bottom: 20px;
+            pointer-events: none; /* Ignore pointer events on icon */
         }
 
         .card a {
@@ -106,6 +108,7 @@
             margin-bottom: 10px;
             display: block;
             transition: color 0.2s ease;
+            pointer-events: none; /* Ignore pointer events on link text */
         }
 
         .card a:hover {
@@ -121,6 +124,7 @@
             align-items: center;
             justify-content: center;
             margin-top: 15px; /* Space between link and description */
+            pointer-events: none; /* Ignore pointer events on paragraph */
         }
 
         .footer {
@@ -195,13 +199,13 @@
     </div>
 
     <div class="main-content">
-        <div class="card">
+        <div class="card" data-href="track.html">
             <i class="fas fa-truck-fast"></i>
-            <a href="track.html">Track Shipment</a>
-            <p>अपना ट्रैकिंग ID डालें और अपने ऑर्डर का वर्तमान स्टेटस पता करें।</p>
+            <a>Track Shipment</a> <p>अपना ट्रैकिंग ID डालें और अपने ऑर्डर का वर्तमान स्टेटस पता करें।</p>
         </div>
-        <div class="card">
-            <i class="fas fa-sign-in-alt"></i> <a href="login.html">Login</a> <p>एडमिन, मैनेजर, या डिलीवरी बॉय के रूप में लॉग इन करें।</p>
+        <div class="card" data-href="login.html">
+            <i class="fas fa-sign-in-alt"></i>
+            <a>Login</a> <p>एडमिन, मैनेजर, या डिलीवरी बॉय के रूप में लॉग इन करें।</p>
         </div>
     </div>
 
@@ -212,6 +216,26 @@
     <script>
         // Dynamically set the current year for the copyright notice
         document.getElementById('copyright-year').textContent = new Date().getFullYear();
+
+        // Add click event listener to each card
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('click', () => {
+                const href = card.getAttribute('data-href');
+                if (href) {
+                    window.location.href = href;
+                }
+            });
+        });
+
+        // Optional: Prevent default link behavior within the card to avoid double-triggers
+        // This is good practice if you have <a> tags inside a clickable parent.
+        document.querySelectorAll('.card a').forEach(link => {
+            link.addEventListener('click', (event) => {
+                event.preventDefault(); // Prevent the <a> tag's default navigation
+                // The parent card's click listener will handle navigation
+            });
+        });
+
     </script>
 </body>
 </html>
