@@ -13,7 +13,6 @@ const { google } = require('googleapis');
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
 
 // --- 1. Environment Variables ---
 const MONGO_URI = process.env.MONGO_URI;
@@ -306,6 +305,11 @@ const auth = (roles = []) => {
         }
     };
 };
+
+// --- (NEW) 5.5. Static File Server ---
+// Yeh manifest.json, style.css, etc. jaisi files ko serve karega
+// Yeh line HTML routes (Section 6) se PEHLE honi zaroori hai
+app.use(express.static(path.join(__dirname)));
 
 
 // --- 6. HTML Page Routes --- (No changes)
