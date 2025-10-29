@@ -119,7 +119,7 @@ const BusinessSettings = mongoose.model('BusinessSettings', BusinessSettingsSche
 
 // --- (NEW) 4.5. Google Sheet Auto-Sync Helper Function ---
 
-// Same headers as the manual sync route
+// (Yeh headers aapke manual sync route se 100% match karte hain)
 const GOOGLE_SHEET_HEADERS = [
     'Tracking ID', 'Customer Name', 'Customer Phone', 'Customer Address',
     'Payment Method', 'Bill Amount', 'Current Status', 'Last Updated',
@@ -146,9 +146,9 @@ async function syncSingleDeliveryToSheet(deliveryId, action = 'update') {
             return;
         }
         
-        // If action is delete, we need the object *before* it's deleted
-        // For 'delete', the calling function must pass the ID *before* deleting
+        // Agar action 'delete' hai, toh humein data delete hone se pehle chahiye
         if (action === 'delete' && !delivery) {
+             // Yeh tabhi hoga agar sync call delete ke *baad* hua, jo galat hai
              console.warn(`Auto-sync: Cannot highlight deleted delivery ${deliveryId}, already gone.`);
              return;
         }
@@ -170,26 +170,29 @@ async function syncSingleDeliveryToSheet(deliveryId, action = 'update') {
         
         // Find the row number matching the trackingId
         for (let i = 0; i < sheetData.length; i++) {
+            // [0] is column A
             if (sheetData[i][0] === delivery.trackingId) {
                 rowNumber = i + 1; // 1-based index
                 break;
             }
         }
 
-        // 3. Prepare the data row
+        // 3. Prepare the data row (FIXED TO MATCH MANUAL SYNC)
         const rowData = [
             delivery.trackingId,
             delivery.customerName,
-            delivery.customerPhone,
-            delivery.customerAddress,
-            delivery.paymentMethod,
-            delivery.billAmount,
+            delivery.customerPhone, // <-- Yeh column add ho gaya
+            delivery.customerAddress, // <-- Yeh column add ho gaya
+            delivery.paymentMethod, // <-- Yeh column add ho gaya
+            delivery.billAmount, // <-- Yeh column add ho gaya
             delivery.currentStatus,
-            new Date(delivery.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+            new Date(delivery.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }), // <-- Yeh column add ho gaya
             delivery.assignedByManager ? delivery.assignedByManager.name : 'N/A',
             delivery.assignedTo ? delivery.assignedTo.name : 'N/A',
             new Date(delivery.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
         ];
+        // (Isme OTP nahi hai, kyunki aapke manual sync waale logic mein bhi OTP nahi tha)
+
 
         // 4. Perform the correct action
         if (action === 'delete') {
@@ -227,6 +230,16 @@ async function syncSingleDeliveryToSheet(deliveryId, action = 'update') {
         } else if (action === 'create') {
             // --- ACTION: CREATE (Append Row) ---
             console.log(`Auto-sync: Creating new row for ${delivery.trackingId}`);
+            // Pehle check karlo headers hain ya nahi
+            if (sheetData.length === 0) {
+                 await sheets.spreadsheets.values.append({
+                    spreadsheetId: GOOGLE_SHEET_ID,
+                    range: 'Sheet1!A1',
+                    valueInputOption: 'USER_ENTERED',
+                    resource: { values: [GOOGLE_SHEET_HEADERS] } // Pehle Headers daalo
+                });
+            }
+            // Ab data daalo
             await sheets.spreadsheets.values.append({
                 spreadsheetId: GOOGLE_SHEET_ID,
                 range: 'Sheet1!A1',
@@ -235,10 +248,10 @@ async function syncSingleDeliveryToSheet(deliveryId, action = 'update') {
             });
         }
     } catch (sheetError) {
+        // Log errors without stopping the main application
         console.error(`Auto-sync Error for ${deliveryId}:`, sheetError.message);
     }
 }
-
 
 // --- 5. Auth APIs --- (No changes)
 // 5.1. Login
