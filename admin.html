@@ -131,6 +131,10 @@
         <div class="card" style="min-width: 95%; overflow-x: auto;">
             <h2>All Bookings</h2>
             <button id="refresh-deliveries-btn" class="btn-secondary">Refresh List</button>
+            <button id="sync-google-sheet-btn" class="btn-success" style="margin-left: 10px;">
+    Sync with Google Sheet
+</button>
+<span style="margin-left: 20px;">With Selected:</span>
             <div id="bulk-actions" style="margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
                 <strong>With Selected:</strong>
                 <button id="bulk-reprint-btn" class="btn-secondary btn-sm">Reprint Labels</button>
@@ -684,6 +688,8 @@
 
             // Setup static event listeners
             const refreshBtn = document.getElementById('refresh-deliveries-btn');
+            const syncBtn = document.getElementById('sync-google-sheet-btn');
+            if (syncBtn) {syncBtn.onclick = handleGoogleSheetSync;}
             const addUserBtn = document.getElementById('add-user-btn');
             const logoutBtn = document.getElementById('logout-btn');
             const bookingFormEl = document.getElementById('booking-form');
@@ -720,5 +726,57 @@
             loadBusinessSettingsOnLoad(); // Load settings early
             loadAllDeliveries(); // Load deliveries last
         });
+        // --- (NEW) 14. Google Sheet Sync Handler ---
+        async function handleGoogleSheetSync() {
+            const syncBtn = document.getElementById('sync-google-sheet-btn');
+            if (!syncBtn) return;
+
+            if (!confirm('This will replace all data in the Google Sheet with the current database. Continue?')) {
+                return;
+            }
+
+            const originalText = syncBtn.textContent;
+            syncBtn.disabled = true;
+            syncBtn.textContent = 'Syncing...';
+            
+            // Chhota sa result message dikhane ke liye
+            let resultSpan = document.getElementById('sync-result-span');
+            if (!resultSpan) {
+                resultSpan = document.createElement('span');
+                resultSpan.id = 'sync-result-span';
+                resultSpan.style.marginLeft = '10px';
+                syncBtn.after(resultSpan);
+            }
+            resultSpan.textContent = '';
+
+            try {
+                const response = await fetch('/admin/sync-to-google-sheet', {
+                    method: 'POST',
+                    headers
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultSpan.textContent = 'Sync Success!';
+                    resultSpan.style.color = 'green';
+                    console.log('Sync successful:', data.message);
+                } else {
+                    throw new Error(data.message || 'Sync failed');
+                }
+
+            } catch (error) {
+                console.error('Error syncing to Google Sheet:', error);
+                resultSpan.textContent = `Error: ${error.message}`;
+                resultSpan.style.color = 'red';
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.textContent = originalText;
+                // Message ko 5 second baad hata do
+                setTimeout(() => {
+                    if (resultSpan) resultSpan.textContent = '';
+            }, 5000);
+            }
+        }
 
     </script>

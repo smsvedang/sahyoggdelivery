@@ -1,5 +1,6 @@
 // --- Sahyog Medical Delivery Backend (server.js) - v6.1 (Admin->Manager Workflow - COMPLETE & EXPANDED) ---
 
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -7,6 +8,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const webpush = require('web-push');
+const { google } = require('googleapis');
 
 const app = express();
 app.use(cors());
@@ -30,6 +32,33 @@ mongoose.connect(MONGO_URI)
 
 // --- 3. Web Push Setup ---
 webpush.setVapidDetails('mailto:admin@sahyog.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
+// --- (NEW) Google Sheets API Setup ---
+const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID;
+const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY;
+
+// Check if Google Sheet variables are set
+if (!GOOGLE_SHEET_ID || !GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY) {
+    console.warn("WARNING: Google Sheets environment variables missing! Sync feature will fail.");
+    // Hum server ko exit nahi karenge, sirf warning denge
+}
+
+let sheets;
+if (GOOGLE_SHEET_ID && GOOGLE_SERVICE_ACCOUNT_EMAIL && GOOGLE_PRIVATE_KEY) {
+    const googleAuth = new google.auth.GoogleAuth({
+        credentials: {
+            client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
+            private_key: GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Replace escaped newlines
+        },
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'], // Read/write to sheets
+    });
+    
+    sheets = google.sheets({ version: 'v4', auth: googleAuth });
+    console.log("Google Sheets API authenticated.");
+} else {
+    console.log("Google Sheets API setup skipped due to missing env variables.");
+}
 
 // --- 4. Schemas ---
 
@@ -414,6 +443,72 @@ app.post('/admin/deliveries/bulk-delete', auth(['admin']), async (req, res) => {
     } catch (error) {
         console.error("Bulk Delete Error:", error);
         res.status(500).json({ message: 'Bulk delete failed', error: error.message });
+    }
+});
+// --- (NEW) 7.12. Admin: Sync Deliveries to Google Sheet ---
+app.post('/admin/sync-to-google-sheet', auth(['admin']), async (req, res) => {
+    
+    // Pehle check karo ki sheets setup hua hai ya nahi
+    if (!sheets) {
+        console.error("Google Sheets API is not configured. Check env variables.");
+        return res.status(500).json({ message: 'Google Sheets API is not configured on the server.' });
+    }
+
+    try {
+        // 1. Fetch all deliveries from the database
+        const allDeliveries = await Delivery.find()
+            .populate('assignedByManager', 'name')
+            .populate('assignedTo', 'name')
+            .sort({ createdAt: 1 }); // Oldest first
+
+        // 2. Prepare data for Google Sheet
+        const headerRow = [
+            'Tracking ID', 'Customer Name', 'Customer Phone', 'Customer Address',
+            'Payment Method', 'Bill Amount', 'Current Status', 'Last Updated',
+            'Assigned By Manager', 'Assigned To Boy', 'Created At'
+        ];
+        const rows = [headerRow]; // Start with headers
+
+        allDeliveries.forEach(d => {
+            rows.push([
+                d.trackingId,
+                d.customerName,
+                d.customerPhone,
+                d.customerAddress,
+                d.paymentMethod,
+                d.billAmount,
+                d.currentStatus,
+                new Date(d.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }), // Indian Time
+                d.assignedByManager ? d.assignedByManager.name : 'N/A',
+                d.assignedTo ? d.assignedTo.name : 'N/A',
+                new Date(d.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) // Indian Time
+            ]);
+        });
+
+        // 3. Update the Google Sheet
+        // Step 3a: Clear existing data
+        await sheets.spreadsheets.values.clear({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: 'Sheet1!A:Z', // Clear entire sheet
+        });
+        console.log("Google Sheet cleared.");
+
+        // Step 3b: Append new data
+        const response = await sheets.spreadsheets.values.append({
+            spreadsheetId: GOOGLE_SHEET_ID,
+            range: 'Sheet1!A1', // Start appending from A1
+            valueInputOption: 'USER_ENTERED',
+            resource: {
+                values: rows,
+            },
+        });
+
+        console.log(`Synced ${rows.length - 1} deliveries to Google Sheet.`);
+        res.json({ message: `Successfully synced ${rows.length - 1} deliveries to Google Sheet.`, updatedCells: response.data.updates.updatedCells });
+
+    } catch (error) {
+        console.error("Error syncing to Google Sheet:", error);
+        res.status(500).json({ message: 'Error syncing to Google Sheet', error: error.message });
     }
 });
 
